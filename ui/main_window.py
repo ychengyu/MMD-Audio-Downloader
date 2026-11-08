@@ -123,8 +123,9 @@ class MainWindow(QMainWindow):
         header_layout.addStretch(1)
 
         # Quick Theme Mode Switcher (Dark / Light / System) matching reference UI
-        self.quick_theme_btn = QPushButton("🌙 主題：深色 ˇ" if self.theme_mgr.is_dark() else "☀️ 主題：淺色 ˇ")
+        self.quick_theme_btn = QPushButton("🌙 主題 ˇ" if self.theme_mgr.is_dark() else "☀️ 主題 ˇ")
         self.quick_theme_btn.setFixedHeight(30)
+        self.quick_theme_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.quick_theme_btn.setStyleSheet("""
             QPushButton {
                 background-color: #1E212A;
@@ -142,6 +143,28 @@ class MainWindow(QMainWindow):
         """)
         self.quick_theme_btn.clicked.connect(self._cycle_theme_mode)
         header_layout.addWidget(self.quick_theme_btn)
+
+        # Quick Settings Button matching reference UI
+        self.quick_settings_btn = QPushButton("⚙ 設定")
+        self.quick_settings_btn.setFixedHeight(30)
+        self.quick_settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.quick_settings_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1E212A;
+                color: #C0C5D0;
+                border: 1px solid #2B2F3B;
+                border-radius: 6px;
+                padding: 4px 12px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #272B37;
+                color: #FFFFFF;
+                border: 1px solid #3C4252;
+            }
+        """)
+        self.quick_settings_btn.clicked.connect(lambda: self._on_nav_clicked(4))
+        header_layout.addWidget(self.quick_settings_btn)
 
         root_v_layout.addWidget(self.header_bar)
 
@@ -187,7 +210,7 @@ class MainWindow(QMainWindow):
         self.nav_buttons = []
 
         self.nav_items_data = [
-            ("♫  MMD WAV 專區", "♫"),
+            ("·|·  MMD WAV 專區", "·|·"),
             ("📥  影音下載", "📥"),
             ("⇄  格式轉換", "⇄"),
             ("📋  任務管理", "📋"),
@@ -209,16 +232,16 @@ class MainWindow(QMainWindow):
         self.nav_buttons[0].setChecked(True)
         self.sidebar_layout.addStretch(1)
 
-        # Footer info matching reference UI
+        # Footer info matching reference UI 02_download_view.png
         footer_widget = QWidget()
         footer_layout = QVBoxLayout(footer_widget)
-        footer_layout.setContentsMargins(4, 4, 4, 4)
+        footer_layout.setContentsMargins(6, 4, 6, 6)
         footer_layout.setSpacing(2)
 
-        footer_title = QLabel("MMD Audio Downloader")
-        footer_title.setStyleSheet("color: #8E95A5; font-size: 12px; background: transparent;")
-        footer_version = QLabel("v1.0.0 正式版")
-        footer_version.setStyleSheet("color: #656D7E; font-size: 11px; background: transparent;")
+        footer_title = QLabel("ⓘ  v1.0.0 正式版")
+        footer_title.setStyleSheet("color: #8E95A5; font-size: 11px; background: transparent;")
+        footer_version = QLabel("    Windows 11")
+        footer_version.setStyleSheet("color: #656D7E; font-size: 10px; background: transparent;")
 
         footer_layout.addWidget(footer_title)
         footer_layout.addWidget(footer_version)

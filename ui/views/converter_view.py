@@ -194,17 +194,8 @@ class ConverterView(QWidget):
         main_layout.setContentsMargins(16, 12, 16, 12)
         main_layout.setSpacing(12)
 
-        # 1. Hero Banner with embedded Target Format Selector
-        self.hero_banner = HeroBannerWidget(
-            title="格式轉換",
-            desc=[
-                "本機音訊與影片檔案批次轉換中心，支援多種輸入與輸出格式。可一次加入多個檔案，統一設定輸出格式與參數，高效率處理轉換需求。"
-            ],
-            badge_type="converter"
-        )
-
-        # Target Format dropdown inside hero banner or action bar
-        fmt_container = QWidget(self.hero_banner)
+        # Target Format dropdown aligned on the right of header
+        fmt_container = QWidget()
         fmt_layout = QHBoxLayout(fmt_container)
         fmt_layout.setContentsMargins(0, 0, 0, 0)
         fmt_layout.setSpacing(8)
@@ -212,7 +203,7 @@ class ConverterView(QWidget):
         lbl_target = QLabel("統一目標格式：")
         lbl_target.setStyleSheet("font-size: 13px; font-weight: 500; color: #CAD1DC; background: transparent;")
         self.batch_fmt_combo = QComboBox()
-        self.batch_fmt_combo.setFixedHeight(32)
+        self.batch_fmt_combo.setFixedHeight(34)
         self.batch_fmt_combo.setMinimumWidth(260)
         self.batch_fmt_combo.addItems([
             "★ MMD 專用 WAV (44.1 kHz / 16-bit)",
@@ -227,10 +218,15 @@ class ConverterView(QWidget):
         fmt_layout.addWidget(lbl_target)
         fmt_layout.addWidget(self.batch_fmt_combo)
 
-        # Embed target format combo into the hero banner's content row
-        self.hero_banner.text_col.addSpacing(6)
-        self.hero_banner.text_col.addWidget(fmt_container)
-
+        # 1. Page Header matching 03_converter_view.png
+        self.hero_banner = HeroBannerWidget(
+            title="⇄  格式轉換",
+            desc=[
+                "支援多種影音格式相互轉換，提供單檔與多檔批次處理能力。"
+            ],
+            badge_type="converter",
+            right_widget=fmt_container
+        )
         main_layout.addWidget(self.hero_banner)
 
         # 2. Drop Zone (shown when table is empty)

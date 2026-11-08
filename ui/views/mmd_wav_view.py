@@ -64,12 +64,11 @@ class MMDWavView(QWidget):
         layout.setSpacing(12)
         layout.setContentsMargins(2, 2, 2, 2)
 
-        # 1. Hero Banner matching 01_mmd_wav_zone.png
+        # 1. Page Header matching 01_mmd_wav_zone.png
         self.hero_banner = HeroBannerWidget(
-            title="MMD 專用相容 WAV 快速匯出中心",
+            title="·|·  MMD WAV 專區",
             desc=[
-                "一鍵將網路影音或本機音樂轉換為 MMD (MikuMikuDance) 完美相容的 WAV 格式。",
-                "建議規格：Linear PCM 16-bit Signed PCM (pcm_s16le) · 44,100 Hz · Stereo 雙聲道，可直接於 MMD 中使用，無需額外轉換。"
+                "一鍵將網路影音或本機音樂轉換為 MMD (MikuMikuDance) 完美相容的 WAV 格式。"
             ],
             badge_type="wav"
         )
@@ -170,19 +169,17 @@ class MMDWavView(QWidget):
         grid.setContentsMargins(0, 0, 0, 0)
 
         # Row 0: Sample rate & Channels
-        lbl_sr = QLabel("📻 採樣頻率：")
-        lbl_sr.setFixedWidth(85)
+        lbl_sr = QLabel("採樣頻率：")
         lbl_sr.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         self.sr_combo = QComboBox()
         self.sr_combo.addItems(["44,100 Hz (MMD 標準推薦)", "48,000 Hz"])
-        self.sr_combo.setFixedHeight(32)
+        self.sr_combo.setFixedHeight(34)
 
-        lbl_ch = QLabel("🔊 聲道配置：")
-        lbl_ch.setFixedWidth(85)
+        lbl_ch = QLabel("聲道配置：")
         lbl_ch.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         self.ch_combo = QComboBox()
         self.ch_combo.addItems(["Stereo 雙聲道 (MMD 預設)", "Mono 單聲道"])
-        self.ch_combo.setFixedHeight(32)
+        self.ch_combo.setFixedHeight(34)
 
         grid.addWidget(lbl_sr, 0, 0)
         grid.addWidget(self.sr_combo, 0, 1)
@@ -190,21 +187,19 @@ class MMDWavView(QWidget):
         grid.addWidget(self.ch_combo, 0, 3)
 
         # Row 1: Bit Depth & Volume Gain
-        lbl_bit = QLabel("💿 位元深度：")
-        lbl_bit.setFixedWidth(85)
+        lbl_bit = QLabel("位元深度：")
         lbl_bit.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         self.bit_label = QLabel("16-bit Signed PCM (標準)")
         self.bit_label.setStyleSheet("font-weight: bold; color: #00D2B4; font-size: 13px;")
 
-        lbl_gain = QLabel("🔈 音量增益 (dB)：")
-        lbl_gain.setFixedWidth(115)
+        lbl_gain = QLabel("音量增益 (dB)：")
         lbl_gain.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         self.gain_spin = QDoubleSpinBox()
         self.gain_spin.setRange(-24.0, 24.0)
         self.gain_spin.setValue(0.0)
         self.gain_spin.setSingleStep(0.5)
         self.gain_spin.setSuffix(" dB")
-        self.gain_spin.setFixedHeight(32)
+        self.gain_spin.setFixedHeight(34)
 
         grid.addWidget(lbl_bit, 1, 0)
         grid.addWidget(self.bit_label, 1, 1)
@@ -215,8 +210,7 @@ class MMDWavView(QWidget):
         grid.setColumnStretch(3, 1)
 
         # Row 2: Trimming & Checkboxes
-        lbl_trim = QLabel("✂ 音訊裁切 (選用)：")
-        lbl_trim.setFixedWidth(120)
+        lbl_trim = QLabel("音訊裁切 (選用)：")
         lbl_trim.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         trim_box = QHBoxLayout()
         trim_box.setSpacing(6)
@@ -240,7 +234,7 @@ class MMDWavView(QWidget):
         chk_box.addWidget(self.norm_check)
 
         trim_chk_row = QHBoxLayout()
-        trim_chk_row.setSpacing(16)
+        trim_chk_row.setSpacing(14)
         trim_chk_row.addWidget(lbl_trim)
         trim_chk_row.addLayout(trim_box, 1)
         trim_chk_row.addLayout(chk_box, 1)

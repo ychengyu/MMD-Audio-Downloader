@@ -56,11 +56,11 @@ class TaskManagerView(QWidget):
         main_layout.setContentsMargins(16, 12, 16, 12)
         main_layout.setSpacing(12)
 
-        # 1. Hero Banner matching 04_task_manager_view.png
+        # 1. Page Header matching 04_task_manager_view.png
         self.hero_banner = HeroBannerWidget(
-            title="任務管理",
+            title="📋  任務管理",
             desc=[
-                "即時監控所有背景下載與格式轉換任務，掌握傳輸進度、即時速率與剩餘時間。支援任務暫停、取消、重新下載與檔案直接開啟。"
+                "即時監控所有背景下載與格式轉換任務，掌握傳輸進度、即時速率與剩餘時間。"
             ],
             badge_type="tasks"
         )

@@ -72,11 +72,11 @@ class SettingsView(QWidget):
         layout.setSpacing(12)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # 1. Hero Banner matching 05_settings_view.png
+        # 1. Page Header matching 05_settings_view.png
         self.hero_banner = HeroBannerWidget(
-            title="軟體設定",
+            title="⚙  軟體設定",
             desc=[
-                "自訂 MMD Audio Downloader 的儲存位置、介面主題、色彩風格與下載參數。核心元件狀態即時監控，確保 FFmpeg 與 yt-dlp 維持在最佳相容狀態。"
+                "自訂 MMD Audio Downloader 的儲存位置、介面主題、色彩風格與下載參數。"
             ],
             badge_type="settings"
         )
