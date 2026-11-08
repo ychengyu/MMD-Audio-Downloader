@@ -15,14 +15,12 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
     QGridLayout,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
     QScrollArea,
-    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -32,6 +30,7 @@ from core.ffmpeg_engine import FFmpegEngine, MMDVerificationResult
 from core.task_manager import TaskManager
 from core.utils import format_time, parse_time_to_seconds
 from ui.components.audio_player import AudioPlayerWidget
+from ui.components.hero_banner import HeroBannerWidget
 from ui.components.toast import ToastManager, ToastType
 from ui.theme import ThemeManager
 
@@ -55,7 +54,7 @@ class MMDWavView(QWidget):
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 16, 20, 16)
+        main_layout.setContentsMargins(18, 14, 18, 14)
         main_layout.setSpacing(12)
 
         scroll = QScrollArea()
@@ -65,137 +64,193 @@ class MMDWavView(QWidget):
         layout.setSpacing(12)
         layout.setContentsMargins(2, 2, 2, 2)
 
-        # 1. Page Title Header
-        header_widget = QWidget()
-        header_layout = QVBoxLayout(header_widget)
-        header_layout.setContentsMargins(0, 0, 0, 2)
-        header_layout.setSpacing(3)
-
-        self.hero_title = QLabel("||| MMD WAV 專區")
-        self.hero_title.setStyleSheet("font-size: 22px; font-weight: bold; background: transparent;")
-
-        self.hero_desc = QLabel(
-            "一鍵產出 MikuMikuDance (MMD) 100% 完美相容之標準 WAV 音訊。\n"
-            "嚴格遵循標準：Linear PCM 16-bit Signed (pcm_s16le) ． 44,100 Hz ． Stereo 雙聲道 ． 轉檔後經 ffprobe 嚴密檢驗！"
+        # 1. Hero Banner matching 01_mmd_wav_zone.png
+        self.hero_banner = HeroBannerWidget(
+            title="MMD 專用相容 WAV 快速匯出中心",
+            desc=[
+                "一鍵將網路影音或本機音樂轉換為 MMD (MikuMikuDance) 完美相容的 WAV 格式。",
+                "建議規格：Linear PCM 16-bit Signed PCM (pcm_s16le) · 44,100 Hz · Stereo 雙聲道，可直接於 MMD 中使用，無需額外轉換。"
+            ],
+            badge_type="wav"
         )
-        self.hero_desc.setStyleSheet("color: #A3AAB8; font-size: 12px; line-height: 1.4; background: transparent;")
-        header_layout.addWidget(self.hero_title)
-        header_layout.addWidget(self.hero_desc)
-        layout.addWidget(header_widget)
+        layout.addWidget(self.hero_banner)
 
-        # 2. Source Selection (Dual Mode via Sleek Tabs)
+        # 2. Source Input Card (URL & Local File on single cohesive card)
         source_card = QFrame()
         source_card.setProperty("class", "card")
         source_layout = QVBoxLayout(source_card)
-        source_layout.setContentsMargins(14, 12, 14, 12)
+        source_layout.setContentsMargins(16, 14, 16, 14)
         source_layout.setSpacing(10)
 
-        source_title = QLabel("來源選取")
-        source_title.setStyleSheet("font-weight: bold; font-size: 14px; background: transparent;")
-        source_layout.addWidget(source_title)
+        title_box = QVBoxLayout()
+        title_box.setSpacing(2)
+        self.lbl_title = QLabel("🔗  來源輸入")
+        self.lbl_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #FFFFFF; background: transparent;")
+        lbl_sub = QLabel("支援輸入網路影音連結，或選擇本機音樂檔案進行轉檔。")
+        lbl_sub.setStyleSheet("font-size: 12px; color: #8E95A5; background: transparent;")
+        title_box.addWidget(self.lbl_title)
+        title_box.addWidget(lbl_sub)
+        source_layout.addLayout(title_box)
 
-        self.source_tabs = QTabWidget()
-        self.source_tabs.setStyleSheet("QTabWidget::pane { border: 1px solid #343944; border-radius: 6px; padding: 10px; }")
-
-        # Tab 1: Web URL
-        tab_url = QWidget()
-        tab_url_layout = QHBoxLayout(tab_url)
-        tab_url_layout.setContentsMargins(4, 8, 4, 8)
-        tab_url_layout.setSpacing(8)
-
+        # Row 1: URL input
+        row1 = QHBoxLayout()
+        row1.setSpacing(10)
+        lbl_url = QLabel("🌐  影音網址：")
+        lbl_url.setFixedWidth(82)
+        lbl_url.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         self.url_input = QLineEdit()
-        self.url_input.setPlaceholderText("貼上 YouTube、Bilibili、Niconico 或直連影音網址...")
-        self.url_input.setMinimumHeight(36)
+        self.url_input.setPlaceholderText("貼上 YouTube、Bilibili、Niconico 或其他影音網址...")
+        self.url_input.setFixedHeight(34)
 
-        self.paste_url_btn = QPushButton("📋 貼上")
-        self.paste_url_btn.setMinimumHeight(36)
+        self.paste_url_btn = QPushButton("🔗 貼上並解析")
+        self.paste_url_btn.setFixedHeight(34)
+        self.paste_url_btn.setFixedWidth(100)
         self.paste_url_btn.clicked.connect(self._paste_url)
 
-        self.clear_url_btn = QPushButton("清除")
-        self.clear_url_btn.setMinimumHeight(36)
-        self.clear_url_btn.clicked.connect(lambda: self.url_input.clear())
+        row1.addWidget(lbl_url)
+        row1.addWidget(self.url_input, 1)
+        row1.addWidget(self.paste_url_btn)
+        source_layout.addLayout(row1)
 
-        tab_url_layout.addWidget(self.url_input, 1)
-        tab_url_layout.addWidget(self.paste_url_btn)
-        tab_url_layout.addWidget(self.clear_url_btn)
-        self.source_tabs.addTab(tab_url, "🌐 網路影音網址")
+        # Divider: ――― 或 ―――
+        divider_box = QHBoxLayout()
+        divider_box.setContentsMargins(0, 2, 0, 2)
+        divider_box.setSpacing(12)
+        line_left = QFrame()
+        line_left.setFrameShape(QFrame.Shape.HLine)
+        line_left.setStyleSheet("color: #262A35; background-color: #262A35;")
+        line_left.setFixedHeight(1)
+        or_label = QLabel("或")
+        or_label.setStyleSheet("color: #656D7E; font-size: 12px; background: transparent;")
+        line_right = QFrame()
+        line_right.setFrameShape(QFrame.Shape.HLine)
+        line_right.setStyleSheet("color: #262A35; background-color: #262A35;")
+        line_right.setFixedHeight(1)
+        divider_box.addWidget(line_left, 1)
+        divider_box.addWidget(or_label)
+        divider_box.addWidget(line_right, 1)
+        source_layout.addLayout(divider_box)
 
-        # Tab 2: Local File
-        tab_file = QWidget()
-        tab_file_layout = QHBoxLayout(tab_file)
-        tab_file_layout.setContentsMargins(4, 8, 4, 8)
-        tab_file_layout.setSpacing(8)
-
-        self.file_path_label = QLabel("未選取檔案 (支援拖曳 MP3, MP4, FLAC, M4A 等至此處)")
-        self.file_path_label.setStyleSheet("color: #A3AAB8; padding: 6px 10px; border-radius: 6px; border: 1px dashed #4A5260;")
-        self.file_path_label.setMinimumHeight(36)
+        # Row 2: Local file
+        row2 = QHBoxLayout()
+        row2.setSpacing(10)
+        lbl_file = QLabel("📄  本機檔案：")
+        lbl_file.setFixedWidth(82)
+        lbl_file.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
+        self.file_path_label = QLineEdit()
+        self.file_path_label.setReadOnly(True)
+        self.file_path_label.setPlaceholderText("未選擇檔案 (可匯入 MP3、MP4、FLAC、M4A 等常見格式)")
+        self.file_path_label.setFixedHeight(34)
 
         self.browse_btn = QPushButton("📁 瀏覽檔案...")
-        self.browse_btn.setMinimumHeight(36)
+        self.browse_btn.setFixedHeight(34)
+        self.browse_btn.setFixedWidth(100)
         self.browse_btn.clicked.connect(self._browse_file)
 
-        tab_file_layout.addWidget(self.file_path_label, 1)
-        tab_file_layout.addWidget(self.browse_btn)
-        self.source_tabs.addTab(tab_file, "📂 本機影音檔案")
+        row2.addWidget(lbl_file)
+        row2.addWidget(self.file_path_label, 1)
+        row2.addWidget(self.browse_btn)
+        source_layout.addLayout(row2)
 
-        source_layout.addWidget(self.source_tabs)
         layout.addWidget(source_card)
 
-        # 3. MMD Compatible Settings (Compact 2 Rows)
-        opt_group = QGroupBox("MMD 相容音訊參數設定 (預設最佳相容值)")
-        opt_layout = QGridLayout(opt_group)
-        opt_layout.setSpacing(10)
-        opt_layout.setContentsMargins(14, 14, 14, 14)
+        # 3. MMD Compatible Settings Card
+        opt_card = QFrame()
+        opt_card.setProperty("class", "card")
+        opt_card_layout = QVBoxLayout(opt_card)
+        opt_card_layout.setContentsMargins(16, 14, 16, 14)
+        opt_card_layout.setSpacing(12)
 
-        # Row 1: Sample Rate, Bit Depth, Channels
-        opt_layout.addWidget(QLabel("採樣頻率:"), 0, 0)
+        self.opt_title = QLabel("🎛  MMD WAV 輸出設定 (建議依預設進行匯出)")
+        self.opt_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #FFFFFF; background: transparent;")
+        opt_card_layout.addWidget(self.opt_title)
+
+        grid = QGridLayout()
+        grid.setSpacing(10)
+        grid.setContentsMargins(0, 0, 0, 0)
+
+        # Row 0: Sample rate & Channels
+        lbl_sr = QLabel("📻 採樣頻率：")
+        lbl_sr.setFixedWidth(85)
+        lbl_sr.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         self.sr_combo = QComboBox()
-        self.sr_combo.addItems(["44,100 Hz (MMD 標準音質)", "48,000 Hz"])
-        opt_layout.addWidget(self.sr_combo, 0, 1)
+        self.sr_combo.addItems(["44,100 Hz (MMD 標準推薦)", "48,000 Hz"])
+        self.sr_combo.setFixedHeight(32)
 
-        opt_layout.addWidget(QLabel("位元深度:"), 0, 2)
-        self.bit_label = QLabel("16-bit Signed PCM (標準)")
-        self.bit_label.setStyleSheet("font-weight: bold;")
-        opt_layout.addWidget(self.bit_label, 0, 3)
-
-        opt_layout.addWidget(QLabel("聲道配置:"), 0, 4)
+        lbl_ch = QLabel("🔊 聲道配置：")
+        lbl_ch.setFixedWidth(85)
+        lbl_ch.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         self.ch_combo = QComboBox()
         self.ch_combo.addItems(["Stereo 雙聲道 (MMD 預設)", "Mono 單聲道"])
-        opt_layout.addWidget(self.ch_combo, 0, 5)
+        self.ch_combo.setFixedHeight(32)
 
-        # Row 2: Volume Gain, Trim, Checkboxes
-        opt_layout.addWidget(QLabel("音量增益:"), 1, 0)
+        grid.addWidget(lbl_sr, 0, 0)
+        grid.addWidget(self.sr_combo, 0, 1)
+        grid.addWidget(lbl_ch, 0, 2)
+        grid.addWidget(self.ch_combo, 0, 3)
+
+        # Row 1: Bit Depth & Volume Gain
+        lbl_bit = QLabel("💿 位元深度：")
+        lbl_bit.setFixedWidth(85)
+        lbl_bit.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
+        self.bit_label = QLabel("16-bit Signed PCM (標準)")
+        self.bit_label.setStyleSheet("font-weight: bold; color: #00D2B4; font-size: 13px;")
+
+        lbl_gain = QLabel("🔈 音量增益 (dB)：")
+        lbl_gain.setFixedWidth(115)
+        lbl_gain.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         self.gain_spin = QDoubleSpinBox()
         self.gain_spin.setRange(-24.0, 24.0)
         self.gain_spin.setValue(0.0)
         self.gain_spin.setSingleStep(0.5)
         self.gain_spin.setSuffix(" dB")
-        opt_layout.addWidget(self.gain_spin, 1, 1)
+        self.gain_spin.setFixedHeight(32)
 
-        opt_layout.addWidget(QLabel("音訊裁切:"), 1, 2)
+        grid.addWidget(lbl_bit, 1, 0)
+        grid.addWidget(self.bit_label, 1, 1)
+        grid.addWidget(lbl_gain, 1, 2)
+        grid.addWidget(self.gain_spin, 1, 3)
+
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(3, 1)
+
+        # Row 2: Trimming & Checkboxes
+        lbl_trim = QLabel("✂ 音訊裁切 (選用)：")
+        lbl_trim.setFixedWidth(120)
+        lbl_trim.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         trim_box = QHBoxLayout()
-        trim_box.setSpacing(4)
+        trim_box.setSpacing(6)
         self.trim_start_input = QLineEdit()
-        self.trim_start_input.setPlaceholderText("開始 (如 00:10)")
+        self.trim_start_input.setPlaceholderText("開始 (例如 00:10)")
+        self.trim_start_input.setFixedHeight(32)
+        to_lbl = QLabel("至")
+        to_lbl.setStyleSheet("color: #8E95A5; font-size: 12px; background: transparent;")
         self.trim_end_input = QLineEdit()
-        self.trim_end_input.setPlaceholderText("結束 (如 02:45)")
-        trim_box.addWidget(self.trim_start_input)
-        trim_box.addWidget(QLabel("至"))
-        trim_box.addWidget(self.trim_end_input)
-        opt_layout.addLayout(trim_box, 1, 3)
+        self.trim_end_input.setPlaceholderText("結束 (例如 02:45)")
+        self.trim_end_input.setFixedHeight(32)
+        trim_box.addWidget(self.trim_start_input, 1)
+        trim_box.addWidget(to_lbl)
+        trim_box.addWidget(self.trim_end_input, 1)
 
-        check_box = QHBoxLayout()
-        check_box.setSpacing(12)
-        self.silence_check = QCheckBox("移除靜音")
-        self.norm_check = QCheckBox("音量正規化")
-        check_box.addWidget(self.silence_check)
-        check_box.addWidget(self.norm_check)
-        opt_layout.addLayout(check_box, 1, 4, 1, 2)
+        chk_box = QHBoxLayout()
+        chk_box.setSpacing(14)
+        self.silence_check = QCheckBox("移除前後靜音片段")
+        self.norm_check = QCheckBox("音量正規化 (將音量調整至合理範圍)")
+        chk_box.addWidget(self.silence_check)
+        chk_box.addWidget(self.norm_check)
 
-        layout.addWidget(opt_group)
+        trim_chk_row = QHBoxLayout()
+        trim_chk_row.setSpacing(16)
+        trim_chk_row.addWidget(lbl_trim)
+        trim_chk_row.addLayout(trim_box, 1)
+        trim_chk_row.addLayout(chk_box, 1)
 
-        # 4. Full-Width Action Button
-        self.process_btn = QPushButton("↓ 立即產出 MMD 相容 WAV")
+        opt_card_layout.addLayout(grid)
+        opt_card_layout.addLayout(trim_chk_row)
+        layout.addWidget(opt_card)
+
+        # 4. Full-Width Action Button: "📥 立即下載 / 轉檔為 MMD WAV"
+        self.process_btn = QPushButton("📥 立即下載 / 轉檔為 MMD WAV")
         self.process_btn.setProperty("class", "primary")
         self.process_btn.setMinimumHeight(42)
         self.process_btn.setStyleSheet("font-size: 15px; font-weight: bold;")
@@ -239,20 +294,26 @@ class MMDWavView(QWidget):
         self.result_open_btn.clicked.connect(self._open_result_file)
         self.result_folder_btn.clicked.connect(self._open_result_folder)
 
-        self._on_theme_changed("dark" if self.theme_mgr.is_dark() else "light", self.theme_mgr.accent_color)
-
     def _paste_url(self):
         clip = QApplication.clipboard().text().strip()
         if clip:
             self.url_input.setText(clip)
+            ToastManager.show_toast(
+                self,
+                title="已貼上網址",
+                message=clip[:50] + ("..." if len(clip) > 50 else ""),
+                toast_type=ToastType.INFO
+            )
 
     def _on_theme_changed(self, mode: str, accent: str):
-        self.hero_title.setStyleSheet(f"font-size: 22px; font-weight: bold; color: {accent}; background: transparent;")
-        self.bit_label.setStyleSheet(f"font-weight: bold; color: {accent};")
-        if self.selected_local_file:
-            self.file_path_label.setStyleSheet(f"color: {accent}; padding: 6px 10px; border-radius: 6px; border: 1.5px solid {accent}; font-weight: bold;")
-        else:
-            self.file_path_label.setStyleSheet("color: #A3AAB8; padding: 6px 10px; border-radius: 6px; border: 1px dashed #4A5260;")
+        is_dark = (mode == "dark")
+        text_pri = "#FFFFFF" if is_dark else "#181A20"
+        if hasattr(self, "lbl_title"):
+            self.lbl_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {text_pri}; background: transparent;")
+        if hasattr(self, "opt_title"):
+            self.opt_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {text_pri}; background: transparent;")
+        if hasattr(self, "bit_label"):
+            self.bit_label.setStyleSheet(f"font-weight: bold; color: {accent}; font-size: 13px;")
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -264,10 +325,7 @@ class MMDWavView(QWidget):
             first_path = Path(urls[0].toLocalFile())
             if first_path.exists():
                 self.selected_local_file = first_path
-                accent = self.theme_mgr.accent_color
-                self.file_path_label.setText(f"✓ 已選取: {first_path.name}")
-                self.file_path_label.setStyleSheet(f"color: {accent}; padding: 6px 10px; border-radius: 6px; border: 1.5px solid {accent}; font-weight: bold;")
-                self.source_tabs.setCurrentIndex(1)
+                self.file_path_label.setText(str(first_path))
                 self.player_widget.load_audio(first_path)
 
     def _browse_file(self):
@@ -280,22 +338,15 @@ class MMDWavView(QWidget):
         if file_path:
             p = Path(file_path)
             self.selected_local_file = p
-            accent = self.theme_mgr.accent_color
-            self.file_path_label.setText(f"✓ 已選取: {p.name}")
-            self.file_path_label.setStyleSheet(f"color: {accent}; padding: 6px 10px; border-radius: 6px; border: 1.5px solid {accent}; font-weight: bold;")
-            self.source_tabs.setCurrentIndex(1)
+            self.file_path_label.setText(str(p))
             self.player_widget.load_audio(p)
 
     def _start_process(self):
-        is_url_tab = self.source_tabs.currentIndex() == 0
-        url = self.url_input.text().strip() if is_url_tab else ""
-        local_file = self.selected_local_file if not is_url_tab else None
+        url = self.url_input.text().strip()
+        local_file = self.selected_local_file if (self.selected_local_file and self.selected_local_file.exists()) else None
 
-        if is_url_tab and not url:
-            QMessageBox.warning(self, "未指定網址", "請先輸入或貼上影音網址！")
-            return
-        elif not is_url_tab and (not local_file or not local_file.exists()):
-            QMessageBox.warning(self, "未選取檔案", "請先選取或拖曳本機影音檔案！")
+        if not url and not local_file:
+            QMessageBox.warning(self, "未指定來源", "請先輸入影音網址，或瀏覽選取本機檔案！")
             return
 
         cfg = self.config_mgr.get()

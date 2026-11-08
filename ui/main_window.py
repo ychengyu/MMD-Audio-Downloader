@@ -4,6 +4,7 @@ Features modern Windows 11 Fluent Design, collapsible sidebar, top navigation ba
 instant theme hot-reloading, accent color synchronization, and view switching.
 """
 
+import sys
 from pathlib import Path
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPixmap
@@ -121,8 +122,8 @@ class MainWindow(QMainWindow):
 
         header_layout.addStretch(1)
 
-        # Quick Theme Mode Switcher (Dark / Light / System)
-        self.quick_theme_btn = QPushButton("🌙 主題 ˇ" if self.theme_mgr.is_dark() else "☀️ 主題 ˇ")
+        # Quick Theme Mode Switcher (Dark / Light / System) matching reference UI
+        self.quick_theme_btn = QPushButton("🌙 主題：深色 ˇ" if self.theme_mgr.is_dark() else "☀️ 主題：淺色 ˇ")
         self.quick_theme_btn.setFixedHeight(30)
         self.quick_theme_btn.setStyleSheet("""
             QPushButton {
@@ -142,27 +143,6 @@ class MainWindow(QMainWindow):
         self.quick_theme_btn.clicked.connect(self._cycle_theme_mode)
         header_layout.addWidget(self.quick_theme_btn)
 
-        # Quick Settings Button
-        self.quick_settings_btn = QPushButton("⚙ 設定")
-        self.quick_settings_btn.setFixedHeight(30)
-        self.quick_settings_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #1E212A;
-                color: #C0C5D0;
-                border: 1px solid #2B2F3B;
-                border-radius: 6px;
-                padding: 4px 12px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #272B37;
-                color: #FFFFFF;
-                border: 1px solid #3C4252;
-            }
-        """)
-        self.quick_settings_btn.clicked.connect(lambda: self._on_nav_clicked(4))
-        header_layout.addWidget(self.quick_settings_btn)
-
         root_v_layout.addWidget(self.header_bar)
 
         # 2. Main Body: Sidebar + Views
@@ -176,16 +156,39 @@ class MainWindow(QMainWindow):
         self.sidebar.setFixedWidth(200)
 
         self.sidebar_layout = QVBoxLayout(self.sidebar)
-        self.sidebar_layout.setContentsMargins(12, 16, 12, 16)
+        self.sidebar_layout.setContentsMargins(12, 14, 12, 14)
         self.sidebar_layout.setSpacing(8)
+
+        # Collapse Button at top of sidebar
+        self.collapse_btn = QPushButton("☰ 收合選單")
+        self.collapse_btn.setFixedHeight(32)
+        self.collapse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.collapse_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #181B23;
+                color: #A3AAB8;
+                border: 1px solid #262A35;
+                border-radius: 6px;
+                font-size: 12px;
+                text-align: left;
+                padding-left: 10px;
+            }
+            QPushButton:hover {
+                background-color: #222632;
+                color: #FFFFFF;
+                border-color: #343946;
+            }
+        """)
+        self.collapse_btn.clicked.connect(self._toggle_sidebar)
+        self.sidebar_layout.addWidget(self.collapse_btn)
 
         # Navigation Buttons Group
         self.nav_group = QButtonGroup(self)
         self.nav_buttons = []
 
         self.nav_items_data = [
-            ("·|·  MMD WAV 專區", "·|·"),
-            ("↓  影音下載", "↓"),
+            ("♫  MMD WAV 專區", "♫"),
+            ("📥  影音下載", "📥"),
             ("⇄  格式轉換", "⇄"),
             ("📋  任務管理", "📋"),
             ("⚙  軟體設定", "⚙")
@@ -206,21 +209,19 @@ class MainWindow(QMainWindow):
         self.nav_buttons[0].setChecked(True)
         self.sidebar_layout.addStretch(1)
 
-        # Footer info matching mockup
+        # Footer info matching reference UI
         footer_widget = QWidget()
-        footer_layout = QHBoxLayout(footer_widget)
+        footer_layout = QVBoxLayout(footer_widget)
         footer_layout.setContentsMargins(4, 4, 4, 4)
-        footer_layout.setSpacing(8)
+        footer_layout.setSpacing(2)
 
-        info_icon = QLabel("ℹ")
-        info_icon.setStyleSheet("color: #6C7284; font-size: 14px; background: transparent;")
-        info_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        footer_layout.addWidget(info_icon)
+        footer_title = QLabel("MMD Audio Downloader")
+        footer_title.setStyleSheet("color: #8E95A5; font-size: 12px; background: transparent;")
+        footer_version = QLabel("v1.0.0 正式版")
+        footer_version.setStyleSheet("color: #656D7E; font-size: 11px; background: transparent;")
 
-        footer_text = QLabel("v1.0.0 正式版\nWindows 11")
-        footer_text.setStyleSheet("color: #6C7284; font-size: 11px; line-height: 1.2; background: transparent;")
-        footer_layout.addWidget(footer_text)
-        footer_layout.addStretch(1)
+        footer_layout.addWidget(footer_title)
+        footer_layout.addWidget(footer_version)
 
         self.sidebar_layout.addWidget(footer_widget)
 
@@ -280,7 +281,7 @@ class MainWindow(QMainWindow):
         cycle = {"dark": "light", "light": "system", "system": "dark"}
         next_mode = cycle.get(current, "dark")
         self.theme_mgr.set_theme_mode(next_mode)
-        self.quick_theme_btn.setText("🌙 主題 ˇ" if self.theme_mgr.is_dark() else "☀️ 主題 ˇ")
+        self.quick_theme_btn.setText("🌙 主題：深色 ˇ" if self.theme_mgr.is_dark() else "☀️ 主題：淺色 ˇ")
 
     def _on_theme_updated(self, mode: str, accent: str):
         # Hot-reload main window stylesheet

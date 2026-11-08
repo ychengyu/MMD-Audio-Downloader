@@ -507,6 +507,7 @@ class DownloaderEngine:
                                     output_path=final_path,
                                     target_format=target_format,
                                     quality="best",
+                                    progress_callback=lambda p, msg: progress_callback({"status": "converting", "percentage": p, "message": msg}) if progress_callback else None,
                                     cancel_check=cancel_check
                                 )
                                 try:
@@ -554,6 +555,7 @@ class DownloaderEngine:
                                 output_path=final_path,
                                 target_format=target_format,
                                 quality="best",
+                                progress_callback=lambda p, msg: progress_callback({"status": "converting", "percentage": p, "message": msg}) if progress_callback else None,
                                 cancel_check=cancel_check
                             )
                             try:

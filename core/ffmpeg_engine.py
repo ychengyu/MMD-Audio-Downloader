@@ -572,9 +572,15 @@ class FFmpegEngine:
         except Exception:
             pass
 
-        cmd = [self.ffmpeg_path, "-y", "-i", str(input_path)]
-
         used_gpu = False
+        cmd = [self.ffmpeg_path, "-y"]
+
+        if fmt not in audio_only_formats:
+            gpu_info = self.detect_gpu_acceleration()
+            if gpu_info.has_gpu and gpu_info.hwaccel_flags:
+                cmd.extend(gpu_info.hwaccel_flags)
+
+        cmd.extend(["-i", str(input_path)])
         if fmt in audio_only_formats:
             cmd.append("-vn")  # Discard video
             if fmt == "WAV":

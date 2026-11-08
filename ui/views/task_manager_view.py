@@ -1,6 +1,7 @@
 """
 Task Manager View for MMD Audio Downloader.
-Displays real-time queue, speed, status filters, history, and task management actions.
+Displays real-time queue, speed, status filters, history, and task management actions
+matching reference 04_task_manager_view.png.
 """
 
 import json
@@ -18,7 +19,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QPushButton,
-    QRadioButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -27,12 +27,14 @@ from PySide6.QtWidgets import (
 from core.config import ConfigManager
 from core.task_manager import TaskItem, TaskManager, TaskStatus
 from ui.components.empty_state import EmptyStateWidget
+from ui.components.hero_banner import HeroBannerWidget
 from ui.components.task_card import TaskCard
 from ui.components.toast import ToastManager, ToastType
+from ui.theme import ThemeManager
 
 
 class TaskManagerView(QWidget):
-    """View managing active and historical tasks."""
+    """View managing active and historical tasks matching 04_task_manager_view.png."""
 
     play_audio_requested = Signal(str)
 
@@ -40,224 +42,333 @@ class TaskManagerView(QWidget):
         super().__init__(parent)
         self.task_manager = task_manager
         self.config_mgr = ConfigManager()
+        self.theme_mgr = ThemeManager()
         self.card_widgets: Dict[str, TaskCard] = {}
         self.current_filter = "ALL"  # "ALL", "RUNNING", "COMPLETED", "FAILED"
 
         self._setup_ui()
         self._connect_signals()
         self._refresh_all_cards()
+        self.theme_mgr.theme_changed.connect(self._on_theme_changed)
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(14)
+        main_layout.setContentsMargins(16, 12, 16, 12)
+        main_layout.setSpacing(12)
 
-        # Header Control Bar
-        header_card = QFrame()
-        header_card.setProperty("class", "card")
-        header_layout = QHBoxLayout(header_card)
+        # 1. Hero Banner matching 04_task_manager_view.png
+        self.hero_banner = HeroBannerWidget(
+            title="任務管理",
+            desc=[
+                "即時監控所有背景下載與格式轉換任務，掌握傳輸進度、即時速率與剩餘時間。支援任務暫停、取消、重新下載與檔案直接開啟。"
+            ],
+            badge_type="tasks"
+        )
+        main_layout.addWidget(self.hero_banner)
 
-        # Stat labels
-        self.stats_label = QLabel("任務狀態: 0 執行中 | 0 已完成 | 0 失敗")
-        self.stats_label.setStyleSheet("font-weight: bold; font-size: 13px;")
-        header_layout.addWidget(self.stats_label)
+        # 2. Stats & Action Toolbar Card matching 04_task_manager_view.png
+        stats_card = QFrame()
+        stats_card.setProperty("class", "card")
+        stats_layout = QHBoxLayout(stats_card)
+        stats_layout.setContentsMargins(16, 10, 16, 10)
+        stats_layout.setSpacing(12)
 
-        header_layout.addStretch(1)
+        # 3 Colored Status Badges on the left
+        badges_row = QHBoxLayout()
+        badges_row.setSpacing(8)
 
-        self.open_folder_btn = QPushButton("📂 開啟下載資料夾")
-        self.clear_btn = QPushButton("清空已完成")
-        self.export_btn = QPushButton("匯出紀錄")
+        self.pill_running = QLabel("▶ 執行中 0")
+        self.pill_running.setStyleSheet("""
+            QLabel {
+                background-color: rgba(0, 210, 180, 0.12);
+                color: #00D2B4;
+                border: 1px solid rgba(0, 210, 180, 0.35);
+                border-radius: 6px;
+                padding: 4px 12px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+        """)
 
-        header_layout.addWidget(self.open_folder_btn)
-        header_layout.addWidget(self.clear_btn)
-        header_layout.addWidget(self.export_btn)
-        main_layout.addWidget(header_card)
+        self.pill_completed = QLabel("✓ 已完成 0")
+        self.pill_completed.setStyleSheet("""
+            QLabel {
+                background-color: rgba(0, 230, 118, 0.12);
+                color: #00E676;
+                border: 1px solid rgba(0, 230, 118, 0.35);
+                border-radius: 6px;
+                padding: 4px 12px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+        """)
 
-        # Filter Tabs
+        self.pill_failed = QLabel("✕ 失敗/取消 0")
+        self.pill_failed.setStyleSheet("""
+            QLabel {
+                background-color: rgba(255, 82, 82, 0.12);
+                color: #FF5252;
+                border: 1px solid rgba(255, 82, 82, 0.35);
+                border-radius: 6px;
+                padding: 4px 12px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+        """)
+
+        badges_row.addWidget(self.pill_running)
+        badges_row.addWidget(self.pill_completed)
+        badges_row.addWidget(self.pill_failed)
+        stats_layout.addLayout(badges_row)
+
+        stats_layout.addStretch(1)
+
+        # Right Action Buttons
+        self.open_folder_btn = QPushButton("📁 開啟下載資料夾")
+        self.open_folder_btn.setFixedHeight(32)
+        self.clear_btn = QPushButton("🧹 清空已完成")
+        self.clear_btn.setFixedHeight(32)
+        self.export_btn = QPushButton("📄 匯出記錄")
+        self.export_btn.setFixedHeight(32)
+
+        stats_layout.addWidget(self.open_folder_btn)
+        stats_layout.addWidget(self.clear_btn)
+        stats_layout.addWidget(self.export_btn)
+        main_layout.addWidget(stats_card)
+
+        # 3. Filter Tabs Row matching 04_task_manager_view.png
         filter_bar = QHBoxLayout()
+        filter_bar.setSpacing(8)
         self.filter_group = QButtonGroup(self)
 
         self.btn_all = QPushButton("全部任務")
         self.btn_running = QPushButton("執行中")
         self.btn_completed = QPushButton("已完成")
-        self.btn_failed = QPushButton("失敗／取消")
+        self.btn_failed = QPushButton("失敗/取消")
 
-        for b in [self.btn_all, self.btn_running, self.btn_completed, self.btn_failed]:
+        filter_buttons = [self.btn_all, self.btn_running, self.btn_completed, self.btn_failed]
+        for b in filter_buttons:
             b.setCheckable(True)
+            b.setFixedHeight(30)
             self.filter_group.addButton(b)
             filter_bar.addWidget(b)
 
         self.btn_all.setChecked(True)
+        self._update_filter_styles()
         filter_bar.addStretch(1)
         main_layout.addLayout(filter_bar)
 
-        # Scrollable Task Cards Container
+        # 4. Scrollable Task Cards Container
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.cards_container = QWidget()
         self.cards_layout = QVBoxLayout(self.cards_container)
         self.cards_layout.setContentsMargins(0, 0, 0, 0)
-        self.cards_layout.setSpacing(10)
+        self.cards_layout.setSpacing(8)
 
         # Empty State
         self.empty_state = EmptyStateWidget(
             icon_text="📋",
-            title="目前尚無排程或歷史任務",
-            description="您可以從『★ MMD WAV 專區』快速轉換音樂，或從『📥 影音下載』貼上網址開始下載！",
-            action_text="前往 ★ MMD WAV 專區",
-            action_callback=lambda: self.play_audio_requested.emit("__nav_mmd__")
+            title="目前沒有任何任務",
+            description="您可以前往「影音下載」下載網路影片，\n或至「MMD WAV 專區」轉換音訊檔案！",
+            action_text="📥 前往影音下載",
+            action_callback=lambda: self.play_audio_requested.emit("__nav_download__")
         )
         self.cards_layout.addWidget(self.empty_state)
         self.cards_layout.addStretch(1)
+
         self.scroll.setWidget(self.cards_container)
         main_layout.addWidget(self.scroll, 1)
 
-    def _connect_signals(self):
-        self.task_manager.signals.task_added.connect(self._on_task_added)
-        self.task_manager.signals.task_updated.connect(self._on_task_updated)
-        self.task_manager.signals.task_completed.connect(self._on_task_completed)
-        self.task_manager.signals.task_failed.connect(self._on_task_failed)
-        self.task_manager.signals.task_cancelled.connect(self._on_task_cancelled)
-        self.task_manager.signals.queue_cleared.connect(self._on_queue_cleared)
-
-        self.btn_all.clicked.connect(lambda: self._set_filter("ALL"))
-        self.btn_running.clicked.connect(lambda: self._set_filter("RUNNING"))
-        self.btn_completed.clicked.connect(lambda: self._set_filter("COMPLETED"))
-        self.btn_failed.clicked.connect(lambda: self._set_filter("FAILED"))
-
-        self.open_folder_btn.clicked.connect(self._open_output_folder)
+        # Connect actions
+        self.open_folder_btn.clicked.connect(self._open_downloads_folder)
         self.clear_btn.clicked.connect(self._clear_completed)
         self.export_btn.clicked.connect(self._export_history)
+        self.filter_group.buttonClicked.connect(self._on_filter_changed)
 
-    def _set_filter(self, filter_name: str):
-        self.current_filter = filter_name
+    def _connect_signals(self):
+        sig = self.task_manager.signals
+        sig.task_added.connect(self._on_task_added)
+        sig.task_updated.connect(self._on_task_updated)
+        sig.task_completed.connect(self._on_task_completed)
+        sig.task_failed.connect(self._on_task_failed)
+        sig.task_cancelled.connect(self._on_task_cancelled)
+
+    def _update_filter_styles(self):
+        accent = self.theme_mgr.accent_color
+        for b in [self.btn_all, self.btn_running, self.btn_completed, self.btn_failed]:
+            is_active = b.isChecked()
+            if is_active:
+                b.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {accent};
+                        color: #0E151B;
+                        font-weight: bold;
+                        border-radius: 15px;
+                        padding: 4px 16px;
+                        font-size: 12px;
+                        border: none;
+                    }}
+                """)
+            else:
+                b.setStyleSheet("""
+                    QPushButton {{
+                        background-color: #1A1E26;
+                        color: #A3AAB8;
+                        border: 1px solid #2B313F;
+                        border-radius: 15px;
+                        padding: 4px 16px;
+                        font-size: 12px;
+                    }}
+                    QPushButton:hover {{
+                        background-color: #242A36;
+                        color: #FFFFFF;
+                        border: 1px solid #3D4658;
+                    }}
+                """)
+
+    def _on_filter_changed(self, btn: QPushButton):
+        self._update_filter_styles()
+        if btn == self.btn_all:
+            self.current_filter = "ALL"
+        elif btn == self.btn_running:
+            self.current_filter = "RUNNING"
+        elif btn == self.btn_completed:
+            self.current_filter = "COMPLETED"
+        elif btn == self.btn_failed:
+            self.current_filter = "FAILED"
         self._apply_filter()
 
     def _apply_filter(self):
         visible_count = 0
-        for tid, card in self.card_widgets.items():
+        for task_id, card in self.card_widgets.items():
             status = card.task.status
-            is_vis = True
+            should_show = False
             if self.current_filter == "ALL":
-                is_vis = True
-            elif self.current_filter == "RUNNING":
-                is_vis = (status == TaskStatus.RUNNING or status == TaskStatus.PENDING)
-            elif self.current_filter == "COMPLETED":
-                is_vis = (status == TaskStatus.COMPLETED)
-            elif self.current_filter == "FAILED":
-                is_vis = (status in (TaskStatus.FAILED, TaskStatus.CANCELLED))
-            card.setVisible(is_vis)
-            if is_vis:
+                should_show = True
+            elif self.current_filter == "RUNNING" and status in (TaskStatus.RUNNING, TaskStatus.PENDING):
+                should_show = True
+            elif self.current_filter == "COMPLETED" and status == TaskStatus.COMPLETED:
+                should_show = True
+            elif self.current_filter == "FAILED" and status in (TaskStatus.FAILED, TaskStatus.CANCELLED):
+                should_show = True
+
+            card.setVisible(should_show)
+            if should_show:
                 visible_count += 1
 
         self.empty_state.setVisible(visible_count == 0)
 
-    def _on_task_added(self, task_id: str):
-        task = self.task_manager.tasks.get(task_id)
-        if not task:
-            return
-
-        card = TaskCard(task)
-        card.cancel_clicked.connect(self.task_manager.cancel_task)
-        card.retry_clicked.connect(self.task_manager.retry_task)
-        card.remove_clicked.connect(self._remove_card)
-        card.play_clicked.connect(self.play_audio_requested.emit)
-
-        self.card_widgets[task_id] = card
-        # Insert at top of list
-        self.cards_layout.insertWidget(0, card)
-        self._update_stats()
+    def _refresh_all_cards(self):
+        tasks = self.task_manager.get_all_tasks()
+        for t in tasks:
+            self._add_or_update_card(t)
+        self._update_stats_display()
         self._apply_filter()
 
+    def _add_or_update_card(self, task: TaskItem):
+        if task.task_id not in self.card_widgets:
+            card = TaskCard(task, self.cards_container)
+            card.cancel_clicked.connect(self.task_manager.cancel_task)
+            card.retry_clicked.connect(self.task_manager.retry_task)
+            card.remove_clicked.connect(self._remove_task_card)
+            card.play_clicked.connect(self.play_audio_requested.emit)
+
+            self.card_widgets[task.task_id] = card
+            # Insert before empty_state and stretch
+            self.cards_layout.insertWidget(0, card)
+        else:
+            self.card_widgets[task.task_id].update_task(task)
+
+    def _remove_task_card(self, task_id: str):
+        if task_id in self.card_widgets:
+            card = self.card_widgets.pop(task_id)
+            self.cards_layout.removeWidget(card)
+            card.deleteLater()
+            self.task_manager.remove_task(task_id)
+            self._update_stats_display()
+            self._apply_filter()
+
+    def _update_stats_display(self):
+        tasks = self.task_manager.get_all_tasks()
+        running = len([t for t in tasks if t.status in (TaskStatus.RUNNING, TaskStatus.PENDING)])
+        completed = len([t for t in tasks if t.status == TaskStatus.COMPLETED])
+        failed = len([t for t in tasks if t.status in (TaskStatus.FAILED, TaskStatus.CANCELLED)])
+
+        self.pill_running.setText(f"▶ 執行中 {running}")
+        self.pill_completed.setText(f"✓ 已完成 {completed}")
+        self.pill_failed.setText(f"✕ 失敗/取消 {failed}")
+
+    def _on_task_added(self, task_id: str):
+        task = self.task_manager.get_task(task_id)
+        if task:
+            self._add_or_update_card(task)
+            self._update_stats_display()
+            self._apply_filter()
+
     def _on_task_updated(self, task_id: str):
-        task = self.task_manager.tasks.get(task_id)
-        card = self.card_widgets.get(task_id)
-        if task and card:
-            card.update_task(task)
-        self._update_stats()
+        task = self.task_manager.get_task(task_id)
+        if task and task_id in self.card_widgets:
+            self.card_widgets[task_id].update_task(task)
+            self._update_stats_display()
 
     def _on_task_completed(self, task_id: str):
         self._on_task_updated(task_id)
+        self._apply_filter()
 
     def _on_task_failed(self, task_id: str, err: str):
         self._on_task_updated(task_id)
+        self._apply_filter()
 
     def _on_task_cancelled(self, task_id: str):
         self._on_task_updated(task_id)
+        self._apply_filter()
 
-    def _remove_card(self, task_id: str):
-        self.task_manager.remove_task(task_id)
-        card = self.card_widgets.pop(task_id, None)
-        if card:
-            self.cards_layout.removeWidget(card)
-            card.deleteLater()
-        self._update_stats()
-
-    def _clear_completed(self):
-        self.task_manager.clear_completed()
-
-    def _on_queue_cleared(self):
-        to_del = [tid for tid, card in self.card_widgets.items() if card.task.status in (TaskStatus.COMPLETED, TaskStatus.CANCELLED)]
-        for tid in to_del:
-            card = self.card_widgets.pop(tid, None)
-            if card:
-                self.cards_layout.removeWidget(card)
-                card.deleteLater()
-        self._update_stats()
-
-    def _refresh_all_cards(self):
-        all_tasks = self.task_manager.get_all_tasks()
-        # Sort tasks: running/pending first, then by created_at desc
-        all_tasks.sort(key=lambda t: t.created_at, reverse=False)
-        for t in all_tasks:
-            self._on_task_added(t.task_id)
-
-    def _update_stats(self):
-        tasks = self.task_manager.get_all_tasks()
-        running = sum(1 for t in tasks if t.status in (TaskStatus.RUNNING, TaskStatus.PENDING))
-        completed = sum(1 for t in tasks if t.status == TaskStatus.COMPLETED)
-        failed = sum(1 for t in tasks if t.status in (TaskStatus.FAILED, TaskStatus.CANCELLED))
-
-        self.stats_label.setText(f"任務狀態: {running} 執行中 | {completed} 已完成 | {failed} 失敗/取消")
-
-    def _open_output_folder(self):
+    def _open_downloads_folder(self):
         cfg = self.config_mgr.get()
         out_dir = cfg.output_dir
-        if out_dir and os.path.exists(out_dir):
+        if out_dir and Path(out_dir).exists():
             if sys.platform == "win32":
-                subprocess.Popen(f'explorer "{out_dir}"')
+                os.startfile(out_dir)
             else:
                 subprocess.Popen(["xdg-open", out_dir])
+        else:
+            QMessageBox.warning(self, "資料夾不存在", f"找不到下載目錄:\n{out_dir}")
+
+    def _clear_completed(self):
+        tasks = self.task_manager.get_all_tasks()
+        removed = 0
+        for t in tasks:
+            if t.status in (TaskStatus.COMPLETED, TaskStatus.CANCELLED, TaskStatus.FAILED):
+                self._remove_task_card(t.task_id)
+                removed += 1
+        ToastManager.show_toast(
+            self,
+            title="已清理任務清單",
+            message=f"已成功移除 {removed} 筆已完成或已結束的任務紀錄",
+            toast_type=ToastType.INFO
+        )
 
     def _export_history(self):
-        path, _ = QFileDialog.getSaveFileName(
+        file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "匯出任務紀錄",
-            "mmd_task_history.json",
+            "匯出任務記錄",
+            "task_history.json",
             "JSON 檔案 (*.json);;所有檔案 (*.*)"
         )
-        if path:
+        if file_path:
+            tasks = [t.to_dict() for t in self.task_manager.get_all_tasks()]
             try:
-                tasks = self.task_manager.get_all_tasks()
-                data = [{
-                    "id": t.task_id,
-                    "type": t.task_type.value,
-                    "title": t.title,
-                    "source": t.source,
-                    "target_format": t.target_format,
-                    "status": t.status.value,
-                    "output_file": t.output_file,
-                    "is_mmd_valid": t.is_mmd_valid,
-                    "verification": t.verification_msg,
-                    "details": t.media_details
-                } for t in tasks]
-                with open(path, "w", encoding="utf-8") as f:
-                    json.dump(data, f, indent=2, ensure_ascii=False)
+                with open(file_path, "w", encoding="utf-8") as f:
+                    json.dump(tasks, f, ensure_ascii=False, indent=2)
                 ToastManager.show_toast(
                     self,
-                    title="匯出紀錄成功",
-                    message=f"已成功儲存至: {Path(path).name}",
+                    title="匯出成功",
+                    message=f"已儲存任務記錄至:\n{Path(file_path).name}",
                     toast_type=ToastType.SUCCESS
                 )
             except Exception as e:
                 QMessageBox.critical(self, "匯出失敗", f"無法寫入檔案: {e}")
+
+    def _on_theme_changed(self, mode: str, accent: str):
+        self._update_filter_styles()

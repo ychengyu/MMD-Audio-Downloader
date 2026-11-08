@@ -1,12 +1,13 @@
 """
 Task Card Component for MMD Audio Downloader.
 Displays real-time progress, speed, ETA, MMD compatibility badge, and file action buttons
-with modern Windows 11 Fluent Design.
+with modern Windows 11 Fluent Design matching reference 04_task_manager_view.png.
 """
 
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Callable, Optional
 from PySide6.QtCore import Qt, Signal
@@ -22,11 +23,11 @@ from PySide6.QtWidgets import (
 
 from core.task_manager import TaskItem, TaskStatus, TaskType
 from core.utils import format_bytes, format_speed, format_time
-from ui.theme import ThemeManager, hex_to_rgb
+from ui.theme import ThemeManager, adjust_color, hex_to_rgb
 
 
 class TaskCard(QFrame):
-    """Visual card representing a background download or conversion task."""
+    """Visual card representing a background download or conversion task matching 04_task_manager_view.png."""
 
     cancel_clicked = Signal(str)
     retry_clicked = Signal(str)
@@ -39,177 +40,244 @@ class TaskCard(QFrame):
         self.setProperty("class", "card")
         self._setup_ui()
         self.update_task(task)
+        ThemeManager().theme_changed.connect(self._on_theme_changed)
 
     def _setup_ui(self):
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(14, 10, 14, 10)
-        main_layout.setSpacing(6)
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(14, 12, 16, 12)
+        main_layout.setSpacing(14)
 
-        # Row 1: Header (Type badge, Mode badge, Title, Action Buttons)
-        top_layout = QHBoxLayout()
-        top_layout.setSpacing(8)
+        # 1. Left Media Thumbnail / Icon
+        self.thumb_box = QLabel("🎵")
+        self.thumb_box.setFixedSize(54, 54)
+        self.thumb_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.thumb_box.setStyleSheet("""
+            QLabel {
+                background-color: #1A1E26;
+                color: #00D2B4;
+                font-size: 24px;
+                border: 1px solid #282E3D;
+                border-radius: 8px;
+            }
+        """)
+        main_layout.addWidget(self.thumb_box)
 
-        self.type_badge = QLabel(self.task.task_type.value)
-        self.type_badge.setStyleSheet(
-            "background-color: rgba(100, 120, 150, 0.2); border-radius: 4px; padding: 2px 6px; font-weight: bold; font-size: 11px;"
-        )
-        top_layout.addWidget(self.type_badge)
+        # 2. Middle Details Column
+        mid_col = QVBoxLayout()
+        mid_col.setContentsMargins(0, 0, 0, 0)
+        mid_col.setSpacing(4)
 
-        self.mode_badge = QLabel(self.task.target_format)
-        accent = ThemeManager().accent_color
-        r, g, b = hex_to_rgb(accent)
-        self.mode_badge.setStyleSheet(
-            f"background-color: rgba({r}, {g}, {b}, 0.15); color: {accent}; border-radius: 4px; padding: 2px 6px; font-weight: bold; font-size: 11px;"
-        )
-        top_layout.addWidget(self.mode_badge)
+        # Row 1: Badges
+        badge_row = QHBoxLayout()
+        badge_row.setSpacing(6)
 
-        self.title_label = QLabel(self.task.title)
-        self.title_label.setStyleSheet("font-weight: bold; font-size: 13px;")
-        self.title_label.setWordWrap(True)
-        top_layout.addWidget(self.title_label, 1)
+        self.type_badge = QLabel("影音下載")
+        self.type_badge.setStyleSheet("""
+            QLabel {
+                background-color: #212631;
+                color: #A3AAB8;
+                border-radius: 4px;
+                padding: 1px 7px;
+                font-size: 11px;
+                font-weight: 600;
+            }
+        """)
+        badge_row.addWidget(self.type_badge)
 
-        self.pct_label = QLabel("0%")
-        self.pct_label.setStyleSheet("font-weight: bold; font-size: 12px;")
-        top_layout.addWidget(self.pct_label)
+        self.mode_badge = QLabel("MMD 格式 WAV")
+        self.mode_badge.setStyleSheet("""
+            QLabel {
+                background-color: rgba(0, 210, 180, 0.12);
+                color: #00D2B4;
+                border-radius: 4px;
+                padding: 1px 7px;
+                font-size: 11px;
+                font-weight: 600;
+            }
+        """)
+        badge_row.addWidget(self.mode_badge)
+        badge_row.addStretch(1)
+        mid_col.addLayout(badge_row)
 
-        # Control Buttons
-        self.play_btn = QPushButton("▶ 試聽")
-        self.play_btn.setMaximumWidth(70)
-        self.play_btn.setVisible(False)
+        # Row 2: Title
+        self.title_label = QLabel(self.task.title or "任務名稱")
+        self.title_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #FFFFFF; background: transparent;")
+        self.title_label.setWordWrap(False)
+        mid_col.addWidget(self.title_label)
 
-        self.open_file_btn = QPushButton("開啟檔案")
-        self.open_file_btn.setMaximumWidth(80)
-        self.open_file_btn.setVisible(False)
+        # Row 3: Subtitle / Source URL
+        self.sub_label = QLabel(self.task.source or "")
+        self.sub_label.setStyleSheet("font-size: 12px; color: #8E95A5; background: transparent;")
+        mid_col.addWidget(self.sub_label)
 
-        self.open_folder_btn = QPushButton("開啟資料夾")
-        self.open_folder_btn.setMaximumWidth(90)
-        self.open_folder_btn.setVisible(False)
-
-        self.retry_btn = QPushButton("重試")
-        self.retry_btn.setMaximumWidth(60)
-        self.retry_btn.setVisible(False)
-
-        self.cancel_btn = QPushButton("取消")
-        self.cancel_btn.setProperty("class", "danger")
-        self.cancel_btn.setMaximumWidth(60)
-
-        self.remove_btn = QPushButton("✕")
-        self.remove_btn.setMaximumWidth(30)
-        self.remove_btn.setToolTip("從清單中移除")
-
-        top_layout.addWidget(self.play_btn)
-        top_layout.addWidget(self.open_file_btn)
-        top_layout.addWidget(self.open_folder_btn)
-        top_layout.addWidget(self.retry_btn)
-        top_layout.addWidget(self.cancel_btn)
-        top_layout.addWidget(self.remove_btn)
-        main_layout.addLayout(top_layout)
-
-        # Row 2: Sleek Thin Progress Bar
+        # Row 4: Progress Bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
-        self.progress_bar.setFixedHeight(6)
+        self.progress_bar.setFixedHeight(5)
         self.progress_bar.setTextVisible(False)
-        main_layout.addWidget(self.progress_bar)
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                background-color: #1F232D;
+                border-radius: 2px;
+                border: none;
+            }
+            QProgressBar::chunk {
+                background-color: #00D2B4;
+                border-radius: 2px;
+            }
+        """)
+        mid_col.addWidget(self.progress_bar)
 
-        # Row 3: Status & Message footer
-        bottom_layout = QHBoxLayout()
+        # Row 5: Status text + Verification Pill
+        status_row = QHBoxLayout()
+        status_row.setSpacing(10)
+
         self.status_label = QLabel("等候中...")
-        self.status_label.setStyleSheet("color: #A3AAB8; font-size: 11px;")
-        bottom_layout.addWidget(self.status_label, 1)
+        self.status_label.setStyleSheet("color: #8E95A5; font-size: 11px; background: transparent;")
+        status_row.addWidget(self.status_label)
 
-        self.mmd_badge = QLabel("")
-        self.mmd_badge.setVisible(False)
-        bottom_layout.addWidget(self.mmd_badge, 0, Qt.AlignmentFlag.AlignRight)
+        self.verify_pill = QLabel("✓ MMD 格式音訊 (44.1 kHz / 16-bit PCM / Stereo)")
+        self.verify_pill.setStyleSheet("""
+            QLabel {
+                background-color: rgba(0, 230, 118, 0.12);
+                color: #00E676;
+                border: 1px solid rgba(0, 230, 118, 0.3);
+                border-radius: 10px;
+                padding: 1px 9px;
+                font-size: 10px;
+                font-weight: 600;
+            }
+        """)
+        self.verify_pill.setVisible(False)
+        status_row.addWidget(self.verify_pill)
+        status_row.addStretch(1)
 
-        main_layout.addLayout(bottom_layout)
+        mid_col.addLayout(status_row)
+        main_layout.addLayout(mid_col, 1)
 
-        # Signals
-        self.cancel_btn.clicked.connect(lambda: self.cancel_clicked.emit(self.task.task_id))
+        # 3. Right Action Buttons Column
+        right_box = QHBoxLayout()
+        right_box.setSpacing(8)
+        right_box.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+
+        self.detail_btn = QPushButton("ⓘ 詳細")
+        self.detail_btn.setFixedHeight(30)
+        self.detail_btn.setStyleSheet("font-size: 11px; padding: 2px 10px;")
+
+        self.retry_btn = QPushButton("🔄 重新下載")
+        self.retry_btn.setFixedHeight(30)
+        self.retry_btn.setStyleSheet("font-size: 11px; padding: 2px 10px;")
         self.retry_btn.clicked.connect(lambda: self.retry_clicked.emit(self.task.task_id))
-        self.remove_btn.clicked.connect(lambda: self.remove_clicked.emit(self.task.task_id))
-        self.open_file_btn.clicked.connect(self._open_file)
+
+        self.open_folder_btn = QPushButton("📁 開啟資料夾")
+        self.open_folder_btn.setFixedHeight(30)
+        self.open_folder_btn.setStyleSheet("font-size: 11px; padding: 2px 10px;")
         self.open_folder_btn.clicked.connect(self._open_folder)
-        self.play_btn.clicked.connect(lambda: self.play_clicked.emit(self.task.output_file))
+
+        self.cancel_btn = QPushButton("✕ 取消")
+        self.cancel_btn.setFixedHeight(30)
+        self.cancel_btn.setProperty("class", "danger")
+        self.cancel_btn.setStyleSheet("font-size: 11px; padding: 2px 10px;")
+        self.cancel_btn.clicked.connect(lambda: self.cancel_clicked.emit(self.task.task_id))
+
+        right_box.addWidget(self.detail_btn)
+        right_box.addWidget(self.retry_btn)
+        right_box.addWidget(self.open_folder_btn)
+        right_box.addWidget(self.cancel_btn)
+        main_layout.addLayout(right_box)
 
     def update_task(self, task: TaskItem):
         self.task = task
         self.title_label.setText(task.title or Path(task.source).name or "任務")
+        self.sub_label.setText(task.source or "")
+
+        # Update Thumbnail Icon
+        is_video = (task.mode == "video" or task.target_format.upper() in ("MP4", "MKV", "WEBM"))
+        self.thumb_box.setText("🎞" if is_video else "🎵")
+
+        # Update Badges
+        if task.task_type == TaskType.DOWNLOAD:
+            self.type_badge.setText("影音下載")
+        else:
+            self.type_badge.setText("格式轉換")
 
         if task.mode == "mmd_wav":
-            self.mode_badge.setText("MMD 相容 WAV")
-        elif task.mode == "video":
-            self.mode_badge.setText(f"{task.target_format} (完整影片)")
+            self.mode_badge.setText("MMD 格式 WAV")
         else:
-            self.mode_badge.setText(f"{task.target_format} ({task.audio_quality})")
+            self.mode_badge.setText(f"{task.target_format.upper()} 格式")
 
         pct = int(task.progress)
         self.progress_bar.setValue(pct)
-        self.pct_label.setText(f"{pct}%")
 
-        accent = ThemeManager().accent_color
-
-        # Status text with speed and ETA if available
+        # Status & Message text
         if task.status == TaskStatus.RUNNING:
-            if task.speed > 0:
-                speed_str = format_speed(task.speed)
-                eta_str = format_time(task.eta) if task.eta else "計算中..."
-                msg = f"↓ {speed_str}  |  剩餘時間：{eta_str}"
-                self.status_label.setText(msg)
+            spd_str = format_speed(task.speed) if task.speed > 0 else ""
+            eta_str = format_time(task.eta) if task.eta > 0 else ""
+            if spd_str and eta_str:
+                self.status_label.setText(f"下載中... {pct}% · ↓ {spd_str} · 剩餘時間 {eta_str}")
+            elif task.message:
+                self.status_label.setText(f"{task.message} ({pct}%)")
             else:
-                self.status_label.setText(task.message or "處理中...")
+                self.status_label.setText(f"處理中... {pct}%")
+
             self.cancel_btn.setVisible(True)
             self.retry_btn.setVisible(False)
-            self.open_file_btn.setVisible(False)
             self.open_folder_btn.setVisible(False)
-            self.play_btn.setVisible(False)
-            self.status_label.setStyleSheet(f"color: {accent}; font-size: 11px; font-weight: 500;")
+            self.verify_pill.setVisible(False)
 
         elif task.status == TaskStatus.COMPLETED:
-            self.status_label.setText(task.message or "✔ 下載與轉檔完成")
+            finish_time = time.strftime("%Y/%m/%d %H:%M", time.localtime(task.finished_at)) if task.finished_at else ""
+            sz_str = format_bytes(task.downloaded_bytes or task.total_bytes) if (task.downloaded_bytes or task.total_bytes) else ""
+            meta_parts = ["✓ 已完成"]
+            if finish_time:
+                meta_parts.append(finish_time)
+            if sz_str:
+                meta_parts.append(sz_str)
+            self.status_label.setText(" · ".join(meta_parts))
+
             self.cancel_btn.setVisible(False)
             self.retry_btn.setVisible(False)
-            self.open_file_btn.setVisible(True)
             self.open_folder_btn.setVisible(True)
-            self.play_btn.setVisible(bool(task.output_file and Path(task.output_file).exists()))
-            self.status_label.setStyleSheet("color: #00E676; font-size: 11px; font-weight: 500;")
 
-            if getattr(task, "is_mmd_valid", False):
-                self.mmd_badge.setText("★ MMD 100% 相容")
-                self.mmd_badge.setStyleSheet("color: #00E676; font-weight: bold; font-size: 11px;")
-                self.mmd_badge.setVisible(True)
-
-        elif task.status == TaskStatus.FAILED:
-            self.status_label.setText(f"✕ 失敗: {task.error_message or task.message}")
-            self.cancel_btn.setVisible(False)
-            self.retry_btn.setVisible(True)
-            self.open_file_btn.setVisible(False)
-            self.open_folder_btn.setVisible(False)
-            self.play_btn.setVisible(False)
-            self.status_label.setStyleSheet("color: #FF5252; font-size: 11px;")
-
-        elif task.status == TaskStatus.CANCELLED:
-            self.status_label.setText("已由使用者取消")
-            self.cancel_btn.setVisible(False)
-            self.retry_btn.setVisible(True)
-            self.open_file_btn.setVisible(False)
-            self.open_folder_btn.setVisible(False)
-            self.play_btn.setVisible(False)
-            self.status_label.setStyleSheet("color: #A3AAB8; font-size: 11px;")
-
-    def _open_file(self):
-        if self.task.output_file and Path(self.task.output_file).exists():
-            if sys.platform == "win32":
-                os.startfile(self.task.output_file)
+            if task.mode == "mmd_wav":
+                self.verify_pill.setVisible(True)
+                if task.is_mmd_valid:
+                    self.verify_pill.setText("✓ MMD 格式音訊 (44.1 kHz / 16-bit PCM / Stereo)")
+                else:
+                    self.verify_pill.setText("✓ 音訊已轉碼完成")
             else:
-                subprocess.Popen(["xdg-open", self.task.output_file])
+                self.verify_pill.setVisible(False)
+
+        elif task.status in (TaskStatus.FAILED, TaskStatus.CANCELLED):
+            err_msg = task.error_message or task.message or ("已取消" if task.status == TaskStatus.CANCELLED else "失敗")
+            self.status_label.setText(f"✕ {err_msg}")
+            self.cancel_btn.setVisible(False)
+            self.retry_btn.setVisible(True)
+            self.open_folder_btn.setVisible(False)
+            self.verify_pill.setVisible(False)
+
+        else:
+            self.status_label.setText("佇列等候中...")
+            self.cancel_btn.setVisible(True)
+            self.retry_btn.setVisible(False)
+            self.open_folder_btn.setVisible(False)
+            self.verify_pill.setVisible(False)
 
     def _open_folder(self):
-        if self.task.output_file:
-            folder = Path(self.task.output_file).parent
-            if folder.exists():
-                if sys.platform == "win32":
-                    subprocess.Popen(f'explorer /select,"{self.task.output_file}"')
-                else:
-                    subprocess.Popen(["xdg-open", str(folder)])
+        folder = self.task.output_dir
+        if self.task.output_file and Path(self.task.output_file).exists():
+            p = Path(self.task.output_file)
+            if sys.platform == "win32":
+                subprocess.Popen(f'explorer /select,"{p}"')
+                return
+        if folder and Path(folder).exists():
+            if sys.platform == "win32":
+                os.startfile(folder)
+            else:
+                subprocess.Popen(["xdg-open", folder])
+
+    def _on_theme_changed(self, mode: str, accent: str):
+        is_dark = (mode == "dark")
+        text_pri = "#FFFFFF" if is_dark else "#181A20"
+        self.title_label.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {text_pri}; background: transparent;")

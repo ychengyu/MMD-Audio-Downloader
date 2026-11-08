@@ -37,6 +37,7 @@ from core.downloader_engine import DownloaderEngine, ParsedMediaItem
 from core.task_manager import TaskItem, TaskManager, TaskStatus
 from core.utils import format_bytes, format_speed, format_time, parse_time_to_seconds
 from ui.components.format_card_selector import FormatCardSelector
+from ui.components.hero_banner import HeroBannerWidget
 from ui.components.thumbnail_widget import ThumbnailWidget
 from ui.components.toast import ToastManager, ToastType
 from ui.theme import ThemeManager, get_contrast_text_color, hex_to_rgb
@@ -86,32 +87,42 @@ class DownloadView(QWidget):
         scroll.setWidgetResizable(True)
         content = QWidget()
         layout = QVBoxLayout(content)
-        layout.setSpacing(10)
+        layout.setSpacing(12)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # 1. Page Title Header
-        header_widget = QWidget()
-        header_layout = QVBoxLayout(header_widget)
-        header_layout.setContentsMargins(0, 0, 0, 2)
-        header_layout.setSpacing(2)
+        # 1. Hero Banner matching 02_download_view.png
+        self.hero_banner = HeroBannerWidget(
+            title="影音下載",
+            desc=[
+                "支援從 YouTube、Bilibili、Niconico 等網站下載影音內容，並可輸出為 WAV、MP3、MP4、FLAC、M4A、MKV 等多種格式，滿足音訊擷取與格式轉換需求。"
+            ],
+            badge_type="download"
+        )
+        layout.addWidget(self.hero_banner)
 
-        title_row = QHBoxLayout()
-        title_row.setContentsMargins(0, 0, 0, 0)
-        self.view_title = QLabel("↓ 影音下載")
-        self.view_title.setStyleSheet("font-size: 20px; font-weight: bold; background: transparent; color: #F2F3F5;")
-        title_row.addWidget(self.view_title)
-        title_row.addStretch(1)
+        # 2. URL Input Card matching reference
+        url_card = QFrame()
+        url_card.setProperty("class", "card")
+        url_layout = QVBoxLayout(url_card)
+        url_layout.setContentsMargins(16, 12, 16, 12)
+        url_layout.setSpacing(10)
+
+        url_header_row = QHBoxLayout()
+        url_header = QLabel("🔗  影片或音訊連結 (支援 YouTube、Bilibili、Niconico 等平台)")
+        url_header.setStyleSheet("font-size: 14px; font-weight: bold; color: #FFFFFF; background: transparent;")
+        url_header_row.addWidget(url_header)
+        url_header_row.addStretch(1)
 
         self.batch_toggle_btn = QPushButton("切換多網址批次輸入")
-        self.batch_toggle_btn.setFixedHeight(28)
+        self.batch_toggle_btn.setFixedHeight(26)
         self.batch_toggle_btn.setStyleSheet("""
             QPushButton {
                 background-color: #1E212A;
                 color: #A6ACB8;
                 border: 1px solid #2B2F3B;
                 border-radius: 6px;
-                padding: 4px 12px;
-                font-size: 12px;
+                padding: 2px 10px;
+                font-size: 11px;
             }
             QPushButton:hover {
                 background-color: #272B37;
@@ -119,46 +130,42 @@ class DownloadView(QWidget):
                 border: 1px solid #3C4252;
             }
         """)
-        title_row.addWidget(self.batch_toggle_btn)
-        header_layout.addLayout(title_row)
+        url_header_row.addWidget(self.batch_toggle_btn)
+        url_layout.addLayout(url_header_row)
 
-        self.view_subtitle = QLabel("支援 YouTube、Bilibili、Niconico 等影音平台，解析並下載為 WAV、MP3、MP4、FLAC、M4A 等格式。")
-        self.view_subtitle.setStyleSheet("color: #8E95A5; font-size: 12px; background: transparent;")
-        header_layout.addWidget(self.view_subtitle)
-        layout.addWidget(header_widget)
-
-        # 2. URL Input Bar (Single Line with Paste and Parse buttons)
         input_bar_layout = QHBoxLayout()
         input_bar_layout.setSpacing(8)
 
         self.url_input = QLineEdit()
-        self.url_input.setPlaceholderText("https://www.youtube.com/watch?v=XXXXXXXXXXX")
-        self.url_input.setMinimumHeight(38)
+        self.url_input.setPlaceholderText("請輸入或貼上影音連結 (例如：https://www.youtube.com/watch?v=...)")
+        self.url_input.setFixedHeight(36)
         self.url_input.textChanged.connect(self._on_url_text_changed)
         self.url_input.returnPressed.connect(self._start_parse)
 
-        self.paste_btn = QPushButton("📋 貼上")
-        self.paste_btn.setMinimumHeight(38)
-        self.paste_btn.setMinimumWidth(80)
+        self.paste_btn = QPushButton("📋 貼上連結")
+        self.paste_btn.setFixedHeight(36)
+        self.paste_btn.setMinimumWidth(85)
         self.paste_btn.clicked.connect(self._paste_clipboard)
 
         self.parse_btn = QPushButton("🔍 解析資訊")
         self.parse_btn.setProperty("class", "primary")
-        self.parse_btn.setMinimumHeight(38)
-        self.parse_btn.setMinimumWidth(110)
+        self.parse_btn.setFixedHeight(36)
+        self.parse_btn.setMinimumWidth(100)
         self.parse_btn.clicked.connect(self._start_parse)
 
         input_bar_layout.addWidget(self.url_input, 1)
         input_bar_layout.addWidget(self.paste_btn)
         input_bar_layout.addWidget(self.parse_btn)
-        layout.addLayout(input_bar_layout)
+        url_layout.addLayout(input_bar_layout)
 
         # Multi-line batch URLs edit (hidden by default)
         self.batch_url_edit = QPlainTextEdit()
         self.batch_url_edit.setPlaceholderText("每行一個網址，可一次貼上多個影音網址進行批次下載...\nhttps://...\nhttps://...")
         self.batch_url_edit.setMaximumHeight(90)
         self.batch_url_edit.setVisible(False)
-        layout.addWidget(self.batch_url_edit)
+        url_layout.addWidget(self.batch_url_edit)
+
+        layout.addWidget(url_card)
 
         # 3. Parsed Media Preview Card (Horizontal layout matching reference mockup)
         self.preview_card = QFrame()
@@ -166,47 +173,56 @@ class DownloadView(QWidget):
         self.preview_card.setFixedHeight(114)
         self.preview_card.setVisible(False)
         preview_layout = QHBoxLayout(self.preview_card)
-        preview_layout.setContentsMargins(10, 8, 12, 8)
-        preview_layout.setSpacing(12)
+        preview_layout.setContentsMargins(12, 10, 14, 10)
+        preview_layout.setSpacing(14)
 
         # Left 16:9 Thumbnail (160x90) with duration badge
         self.thumb_widget = ThumbnailWidget(width=160, height=90, parent=self.preview_card)
         preview_layout.addWidget(self.thumb_widget)
 
-        # Right Info Column
-        info_layout = QVBoxLayout()
-        info_layout.setSpacing(5)
-        info_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        # Middle Info Column
+        middle_info = QVBoxLayout()
+        middle_info.setSpacing(4)
+        middle_info.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         self.preview_title = QLabel("影片標題")
-        self.preview_title.setStyleSheet("font-size: 15px; font-weight: bold; background: transparent; padding: 0px;")
-        self.preview_title.setFixedHeight(26)
+        self.preview_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #FFFFFF; background: transparent; padding: 0px;")
+        self.preview_title.setFixedHeight(24)
         self.preview_title.setWordWrap(False)
 
-        meta_badge_row = QHBoxLayout()
-        meta_badge_row.setSpacing(8)
-
+        meta_row = QHBoxLayout()
+        meta_row.setSpacing(8)
         self.preview_platform_tag = QLabel("▶ YouTube")
-        self.preview_platform_tag.setStyleSheet(
-            "background-color: rgba(255, 68, 68, 0.2); color: #FF5252; "
-            "border-radius: 4px; padding: 2px 7px; font-weight: bold; font-size: 11px; background: transparent;"
-        )
-        self.preview_platform_tag.setFixedHeight(20)
-        meta_badge_row.addWidget(self.preview_platform_tag)
-        meta_badge_row.addStretch(1)
+        self.preview_platform_tag.setStyleSheet("background-color: rgba(255, 68, 68, 0.2); color: #FF5252; border-radius: 4px; padding: 2px 7px; font-weight: bold; font-size: 11px;")
+        self.preview_meta = QLabel("觀看次數：-- | 發布日期：--")
+        self.preview_meta.setStyleSheet("color: #A3AAB8; font-size: 12px; background: transparent;")
+        meta_row.addWidget(self.preview_platform_tag)
+        meta_row.addWidget(self.preview_meta)
+        meta_row.addStretch(1)
 
-        self.preview_meta = QLabel("時長：-- | 解析品質：-- | 來源：--")
-        self.preview_meta.setStyleSheet("color: #A3AAB8; font-size: 12px; background: transparent; padding: 0px;")
-        self.preview_meta.setFixedHeight(20)
+        middle_info.addWidget(self.preview_title)
+        middle_info.addLayout(meta_row)
+        preview_layout.addLayout(middle_info, 1)
 
-        info_layout.addWidget(self.preview_title)
-        info_layout.addLayout(meta_badge_row)
-        info_layout.addWidget(self.preview_meta)
-        preview_layout.addLayout(info_layout, 1)
+        # Right Info Column
+        right_col = QVBoxLayout()
+        right_col.setSpacing(4)
+        right_col.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        self.preview_fmt_info = QLabel("🎦 原始格式：MP4")
+        self.preview_fmt_info.setStyleSheet("color: #A3AAB8; font-size: 12px; background: transparent;")
+        self.preview_audio_info = QLabel("🔊 原始音訊：AAC · 320 kbps · 48,000 Hz · 立體聲")
+        self.preview_audio_info.setStyleSheet("color: #A3AAB8; font-size: 12px; background: transparent;")
+        right_col.addWidget(self.preview_fmt_info)
+        right_col.addWidget(self.preview_audio_info)
+        preview_layout.addLayout(right_col)
 
         layout.addWidget(self.preview_card)
 
-        # 4. Format Card Selector (Horizontal row of 5 cards)
+        # 4. Format Card Selector (Horizontal row of 6 cards)
+        fmt_title = QLabel("🎴  輸出格式選擇")
+        fmt_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #FFFFFF; background: transparent;")
+        layout.addWidget(fmt_title)
+
         self.format_selector = FormatCardSelector(default_format="WAV", parent=self)
         self.format_selector.format_changed.connect(self._on_format_changed)
         layout.addWidget(self.format_selector)
@@ -230,10 +246,13 @@ class DownloadView(QWidget):
         self.page_m4a = self._create_m4a_param_page()
         self.param_stack.addWidget(self.page_m4a)  # Index 4: M4A
 
+        self.page_mkv = self._create_mkv_param_page()
+        self.param_stack.addWidget(self.page_mkv)  # Index 5: MKV
+
         layout.addWidget(self.param_stack)
 
-        # 6. Full-Width Primary Action Button: "↓ 下載 WAV"
-        self.download_btn = QPushButton("↓ 下載 WAV")
+        # 6. Full-Width Primary Action Button: "📥 下載 WAV"
+        self.download_btn = QPushButton("📥 下載 WAV")
         self.download_btn.setProperty("class", "primary")
         self.download_btn.setMinimumHeight(42)
         self.download_btn.setStyleSheet("font-size: 15px; font-weight: bold;")
@@ -384,64 +403,92 @@ class DownloadView(QWidget):
         v.setContentsMargins(0, 0, 0, 0)
         v.setSpacing(6)
 
-        title = QLabel("WAV 輸出設定 (MMD 最佳相容建議)")
-        title.setFixedHeight(28)
-        title.setStyleSheet("font-size: 13px; font-weight: bold; color: #00D2B4; background: transparent;")
+        title = QLabel("🎛  WAV 輸出參數設定 (MMD 最佳相容配置)")
+        title.setFixedHeight(24)
+        title.setStyleSheet("font-size: 13px; font-weight: bold; color: #FFFFFF; background: transparent;")
         v.addWidget(title)
 
         card = QFrame()
         card.setProperty("class", "card")
-        card.setFixedHeight(116)
-        grid = QGridLayout(card)
-        grid.setSpacing(10)
-        grid.setContentsMargins(14, 10, 14, 10)
+        card.setFixedHeight(136)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(16, 10, 16, 10)
+        card_layout.setSpacing(10)
 
-        # Row 1: Sample Rate, Bit Depth, Channels
-        lbl_sr = QLabel("採樣頻率")
-        lbl_sr.setFixedWidth(66)
+        grid = QGridLayout()
+        grid.setSpacing(10)
+        grid.setContentsMargins(0, 0, 0, 0)
+
+        # Row 1: Sample Rate & Channels
+        lbl_sr = QLabel("📻 採樣頻率：")
+        lbl_sr.setFixedWidth(85)
         lbl_sr.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         grid.addWidget(lbl_sr, 0, 0)
         self.wav_sr_combo = QComboBox()
-        self.wav_sr_combo.addItems(["44,100 Hz (MMD 標準音質)", "48,000 Hz"])
+        self.wav_sr_combo.addItems(["44,100 Hz (MMD 標準推薦)", "48,000 Hz"])
         grid.addWidget(self.wav_sr_combo, 0, 1)
 
-        lbl_bit = QLabel("位元深度")
-        lbl_bit.setFixedWidth(66)
-        lbl_bit.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
-        grid.addWidget(lbl_bit, 0, 2)
-        self.wav_bit_lbl = QComboBox()
-        self.wav_bit_lbl.addItems(["16-bit Signed PCM (建議)"])
-        self.wav_bit_lbl.setStyleSheet("color: #00D2B4; font-weight: bold;")
-        grid.addWidget(self.wav_bit_lbl, 0, 3)
-
-        lbl_ch = QLabel("聲道配置")
-        lbl_ch.setFixedWidth(66)
+        lbl_ch = QLabel("🔊 聲道配置：")
+        lbl_ch.setFixedWidth(85)
         lbl_ch.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
-        grid.addWidget(lbl_ch, 0, 4)
+        grid.addWidget(lbl_ch, 0, 2)
         self.wav_ch_combo = QComboBox()
-        self.wav_ch_combo.addItems(["Stereo 雙聲道 (MMD 預設)", "Mono 單聲道"])
-        grid.addWidget(self.wav_ch_combo, 0, 5)
+        self.wav_ch_combo.addItems(["Stereo 立體聲 (MMD 預設)", "Mono 單聲道"])
+        grid.addWidget(self.wav_ch_combo, 0, 3)
+
+        # Row 2: Bit Depth & Volume Gain
+        lbl_bit = QLabel("💿 位元深度：")
+        lbl_bit.setFixedWidth(85)
+        lbl_bit.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
+        grid.addWidget(lbl_bit, 1, 0)
+        self.wav_bit_lbl = QLabel("16-bit Signed PCM (標準)")
+        self.wav_bit_lbl.setStyleSheet("color: #00D2B4; font-weight: bold; font-size: 13px;")
+        grid.addWidget(self.wav_bit_lbl, 1, 1)
+
+        lbl_gain = QLabel("🔈 音量增益 (dB)：")
+        lbl_gain.setFixedWidth(115)
+        lbl_gain.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
+        grid.addWidget(lbl_gain, 1, 2)
+        self.wav_gain_spin = QDoubleSpinBox()
+        self.wav_gain_spin.setRange(-24.0, 24.0)
+        self.wav_gain_spin.setValue(0.0)
+        self.wav_gain_spin.setSingleStep(0.5)
+        self.wav_gain_spin.setSuffix(" dB")
+        grid.addWidget(self.wav_gain_spin, 1, 3)
 
         grid.setColumnStretch(1, 1)
         grid.setColumnStretch(3, 1)
-        grid.setColumnStretch(5, 1)
+        card_layout.addLayout(grid)
 
-        # Row 2: Save directory
-        lbl_save = QLabel("儲存位置")
-        lbl_save.setFixedWidth(66)
-        lbl_save.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
-        grid.addWidget(lbl_save, 1, 0)
-        save_box = QHBoxLayout()
-        save_box.setSpacing(8)
-        self.wav_save_input = QLineEdit(self.config_mgr.get().output_dir)
-        self.wav_save_input.setReadOnly(True)
-        self.wav_browse_btn = QPushButton("📁 瀏覽...")
-        self.wav_browse_btn.setFixedWidth(90)
-        self.wav_browse_btn.clicked.connect(self._browse_save_directory)
-        save_box.addWidget(self.wav_save_input, 1)
-        save_box.addWidget(self.wav_browse_btn)
-        grid.addLayout(save_box, 1, 1, 1, 5)
+        # Row 3: Audio trimming & checkboxes matching reference
+        trim_row = QHBoxLayout()
+        trim_row.setSpacing(12)
 
+        lbl_trim = QLabel("✂ 音訊裁切 (選用)：")
+        lbl_trim.setFixedWidth(115)
+        lbl_trim.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
+        trim_row.addWidget(lbl_trim)
+
+        self.wav_trim_start = QLineEdit()
+        self.wav_trim_start.setPlaceholderText("開始 (例如 00:10)")
+        self.wav_trim_start.setFixedHeight(28)
+        trim_row.addWidget(self.wav_trim_start, 1)
+
+        lbl_to = QLabel("至")
+        lbl_to.setStyleSheet("color: #8E95A5; font-size: 12px; background: transparent;")
+        trim_row.addWidget(lbl_to)
+
+        self.wav_trim_end = QLineEdit()
+        self.wav_trim_end.setPlaceholderText("結束 (例如 02:45)")
+        self.wav_trim_end.setFixedHeight(28)
+        trim_row.addWidget(self.wav_trim_end, 1)
+
+        self.wav_silence_check = QCheckBox("移除前後靜音片段")
+        self.wav_norm_check = QCheckBox("音量正規化 (將音量調整至合理範圍)")
+        trim_row.addWidget(self.wav_silence_check)
+        trim_row.addWidget(self.wav_norm_check)
+
+        card_layout.addLayout(trim_row)
         v.addWidget(card)
         return container
 
@@ -670,8 +717,64 @@ class DownloadView(QWidget):
         v.addWidget(card)
         return container
 
-        v.addWidget(card)
-        return container
+    def _create_mkv_param_page(self) -> QWidget:
+        container = QWidget()
+        v = QVBoxLayout(container)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(6)
+
+        title = QLabel("MKV 多軌影片輸出設定")
+        title.setFixedHeight(28)
+        title.setStyleSheet("font-size: 13px; font-weight: bold; color: #00D2B4; background: transparent;")
+        v.addWidget(title)
+
+        card = QFrame()
+        card.setProperty("class", "card")
+        card.setFixedHeight(116)
+        grid = QGridLayout(card)
+        grid.setSpacing(10)
+        grid.setContentsMargins(14, 10, 14, 10)
+
+        lbl_res = QLabel("影片解析度")
+        lbl_res.setFixedWidth(72)
+        lbl_res.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
+        grid.addWidget(lbl_res, 0, 0)
+        self.mkv_res_combo = QComboBox()
+        self.mkv_res_combo.addItems([
+            "最佳可用畫質 (自動最高)",
+            "2160p (4K UHD)",
+            "1440p (2K QHD)",
+            "1080p (Full HD)",
+            "720p (HD)"
+        ])
+        grid.addWidget(self.mkv_res_combo, 0, 1)
+
+        lbl_enc = QLabel("影音封裝")
+        lbl_enc.setFixedWidth(66)
+        lbl_enc.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
+        grid.addWidget(lbl_enc, 0, 2)
+        self.mkv_compat_label = QLabel("Matroska 多軌容器 (完整串流保留)")
+        self.mkv_compat_label.setStyleSheet("color: #00D2B4; font-weight: bold; background: transparent;")
+        grid.addWidget(self.mkv_compat_label, 0, 3)
+
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(3, 1)
+
+        # Save directory
+        lbl_save = QLabel("儲存位置")
+        lbl_save.setFixedWidth(72)
+        lbl_save.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
+        grid.addWidget(lbl_save, 1, 0)
+        save_box = QHBoxLayout()
+        save_box.setSpacing(8)
+        self.mkv_save_input = QLineEdit(self.config_mgr.get().output_dir)
+        self.mkv_save_input.setReadOnly(True)
+        self.mkv_browse_btn = QPushButton("📁 瀏覽...")
+        self.mkv_browse_btn.setFixedWidth(90)
+        self.mkv_browse_btn.clicked.connect(self._browse_save_directory)
+        save_box.addWidget(self.mkv_save_input, 1)
+        save_box.addWidget(self.mkv_browse_btn)
+        grid.addLayout(save_box, 1, 1, 1, 3)
 
         v.addWidget(card)
         return container
@@ -687,7 +790,8 @@ class DownloadView(QWidget):
                 getattr(self, "mp3_save_input", None),
                 getattr(self, "mp4_save_input", None),
                 getattr(self, "flac_save_input", None),
-                getattr(self, "m4a_save_input", None)
+                getattr(self, "m4a_save_input", None),
+                getattr(self, "mkv_save_input", None),
             ]:
                 if inp:
                     inp.setText(folder)
@@ -707,10 +811,11 @@ class DownloadView(QWidget):
             "MP4": 2,
             "FLAC": 3,
             "M4A": 4,
+            "MKV": 5,
         }
         idx = mapping.get(fmt_key.upper(), 0)
         self.param_stack.setCurrentIndex(idx)
-        self.download_btn.setText(f"↓ 下載 {fmt_key.upper()}")
+        self.download_btn.setText(f"📥 下載 {fmt_key.upper()}")
 
         cfg = self.config_mgr.get()
         cfg.preferred_format = fmt_key.upper()
@@ -941,6 +1046,30 @@ class DownloadView(QWidget):
             self.task_manager.cancel_task(self._active_task_id)
 
     def _on_theme_changed(self, mode: str, accent: str):
+        is_dark = (mode == "dark")
+        text_pri = "#FFFFFF" if is_dark else "#181A20"
+        text_sec = "#A3AAB8" if is_dark else "#5E6575"
+
+        if hasattr(self, "url_header"):
+            self.url_header.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {text_pri}; background: transparent;")
+        if hasattr(self, "preview_title"):
+            self.preview_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {text_pri}; background: transparent; padding: 0px;")
+        if hasattr(self, "preview_meta"):
+            self.preview_meta.setStyleSheet(f"color: {text_sec}; font-size: 12px; background: transparent;")
+        if hasattr(self, "preview_fmt_info"):
+            self.preview_fmt_info.setStyleSheet(f"color: {text_sec}; font-size: 12px; background: transparent;")
+        if hasattr(self, "preview_audio_info"):
+            self.preview_audio_info.setStyleSheet(f"color: {text_sec}; font-size: 12px; background: transparent;")
+        if hasattr(self, "fmt_title"):
+            self.fmt_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {text_pri}; background: transparent;")
+        if hasattr(self, "task_sec_title"):
+            self.task_sec_title.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {text_pri}; background: transparent;")
+        if hasattr(self, "active_title_lbl"):
+            self.active_title_lbl.setStyleSheet(f"font-weight: bold; font-size: 13px; color: {text_pri}; background: transparent;")
+        if hasattr(self, "active_sub_lbl"):
+            self.active_sub_lbl.setStyleSheet(f"color: {text_sec}; font-size: 11px; background: transparent;")
+        if hasattr(self, "active_speed_eta_lbl"):
+            self.active_speed_eta_lbl.setStyleSheet(f"color: {text_sec}; font-size: 12px; background: transparent;")
         if hasattr(self, "wav_bit_lbl"):
             self.wav_bit_lbl.setStyleSheet(f"color: {accent}; font-weight: bold;")
         if hasattr(self, "mp4_compat_label"):

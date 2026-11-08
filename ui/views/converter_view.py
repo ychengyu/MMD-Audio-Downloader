@@ -1,12 +1,14 @@
 """
 Batch Local Media Converter View for MMD Audio Downloader.
-Supports drag-and-drop batch addition of audio and video files,
-media parameter inspection, format selection, and batch execution.
+Features modern Windows 11 Fluent Design matching reference 03_converter_view.png:
+Hero banner with target format selector, dashed cyan drop zone with feature pills,
+rich media file table, and unified batch execution bar.
 """
 
 from pathlib import Path
 from typing import Dict, List, Optional
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import QPointF, QRectF, Qt, QThread, Signal
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -26,8 +28,9 @@ from core.config import ConfigManager
 from core.ffmpeg_engine import FFmpegEngine, MediaInfo
 from core.task_manager import TaskManager
 from core.utils import format_bytes, format_time
-from ui.components.empty_state import EmptyStateWidget
+from ui.components.hero_banner import HeroBannerWidget
 from ui.components.toast import ToastManager, ToastType
+from ui.theme import ThemeManager, adjust_color, get_contrast_text_color, hex_to_rgb
 
 
 class ProbeWorker(QThread):
@@ -50,8 +53,122 @@ class ProbeWorker(QThread):
             self.item_probed.emit(self.start_row + idx, p, info)
 
 
+class DropZoneWidget(QFrame):
+    """Interactive drop zone card with cyan dashed border and feature pills."""
+
+    add_files_clicked = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._is_hovered = False
+        self._setup_ui()
+        ThemeManager().theme_changed.connect(lambda *_: self.update())
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(40, 50, 40, 50)
+        layout.setSpacing(14)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Center glowing icon
+        icon_lbl = QLabel("📁")
+        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_lbl.setStyleSheet("font-size: 54px; background: transparent;")
+        layout.addWidget(icon_lbl)
+
+        # Title
+        self.title_lbl = QLabel("拖曳音樂或影片檔案至此處，或使用下方按鈕")
+        self.title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title_lbl.setStyleSheet("font-size: 16px; font-weight: bold; color: #FFFFFF; background: transparent;")
+        layout.addWidget(self.title_lbl)
+
+        # Subtitle
+        self.sub_lbl = QLabel("支援 MP3、MP4、FLAC、M4A、OGG、WAV、MKV 等格式，可同時加入多個檔案")
+        self.sub_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.sub_lbl.setStyleSheet("font-size: 12px; color: #8E95A5; background: transparent;")
+        layout.addWidget(self.sub_lbl)
+
+        # 3 Feature Pills
+        pills_layout = QHBoxLayout()
+        pills_layout.setSpacing(10)
+        pills_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        for text in ["🎴 多檔批次轉換", "⚡ 快速高效處理", "✓ 保留高音質"]:
+            pill = QLabel(text)
+            pill.setStyleSheet("""
+                QLabel {
+                    background-color: rgba(0, 210, 180, 0.12);
+                    color: #00D2B4;
+                    border: 1px solid rgba(0, 210, 180, 0.35);
+                    border-radius: 12px;
+                    padding: 4px 14px;
+                    font-size: 11px;
+                    font-weight: 600;
+                }
+            """)
+            pills_layout.addWidget(pill)
+
+        layout.addLayout(pills_layout)
+        layout.addSpacing(6)
+
+        # Browse Button
+        self.browse_btn = QPushButton("📁  瀏覽並加入檔案...")
+        self.browse_btn.setFixedHeight(38)
+        self.browse_btn.setMinimumWidth(180)
+        self.browse_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1E222B;
+                color: #FFFFFF;
+                border: 1px solid #363D4E;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 13px;
+                padding: 0px 20px;
+            }
+            QPushButton:hover {
+                background-color: #272C38;
+                border: 1px solid #00D2B4;
+                color: #00D2B4;
+            }
+        """)
+        self.browse_btn.clicked.connect(self.add_files_clicked.emit)
+        layout.addWidget(self.browse_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.add_files_clicked.emit()
+        super().mousePressEvent(event)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        w = self.width()
+        h = self.height()
+        radius = 12
+
+        tm = ThemeManager()
+        dark = tm.is_dark()
+        accent = tm.accent_color
+        r, g, b = hex_to_rgb(accent)
+
+        bg_col = QColor(20, 24, 31) if dark else QColor(248, 250, 252)
+        border_col = QColor(r, g, b, 130 if self._is_hovered else 80)
+
+        path = QPainterPath()
+        path.addRoundedRect(1, 1, w - 2, h - 2, radius, radius)
+        painter.fillPath(path, bg_col)
+
+        pen = QPen(border_col, 1.6, Qt.PenStyle.DashLine)
+        pen.setDashPattern([5, 4])
+        painter.setPen(pen)
+        painter.drawPath(path)
+        painter.end()
+
+
 class ConverterView(QWidget):
-    """View for converting local audio and video files in batch."""
+    """View for converting local audio and video files in batch matching 03_converter_view.png."""
 
     SUPPORTED_EXTS = {
         ".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".opus",
@@ -63,53 +180,65 @@ class ConverterView(QWidget):
         self.task_manager = task_manager
         self.config_mgr = ConfigManager()
         self.ffmpeg_engine = self.task_manager.ffmpeg_engine
+        self.theme_mgr = ThemeManager()
 
         self.file_items: List[Path] = []
         self.media_infos: Dict[str, MediaInfo] = {}
 
         self._setup_ui()
         self.setAcceptDrops(True)
+        self.theme_mgr.theme_changed.connect(self._on_theme_changed)
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(14)
+        main_layout.setContentsMargins(16, 12, 16, 12)
+        main_layout.setSpacing(12)
 
-        # Header card
-        header_card = QFrame()
-        header_card.setProperty("class", "card")
-        header_layout = QHBoxLayout(header_card)
+        # 1. Hero Banner with embedded Target Format Selector
+        self.hero_banner = HeroBannerWidget(
+            title="格式轉換",
+            desc=[
+                "本機音訊與影片檔案批次轉換中心，支援多種輸入與輸出格式。可一次加入多個檔案，統一設定輸出格式與參數，高效率處理轉換需求。"
+            ],
+            badge_type="converter"
+        )
 
-        info_box = QVBoxLayout()
-        title = QLabel("本機影音格式批次轉換")
-        title.setStyleSheet("font-size: 16px; font-weight: bold;")
-        subtitle = QLabel("支援 MP3、MP4、FLAC、M4A、OGG、WAV 等檔案批次轉換為 MMD WAV 或其他音訊格式。可直接拖曳檔案至下方表格！")
-        subtitle.setStyleSheet("color: #8C95A6; font-size: 12px;")
-        info_box.addWidget(title)
-        info_box.addWidget(subtitle)
-        header_layout.addLayout(info_box, 1)
+        # Target Format dropdown inside hero banner or action bar
+        fmt_container = QWidget(self.hero_banner)
+        fmt_layout = QHBoxLayout(fmt_container)
+        fmt_layout.setContentsMargins(0, 0, 0, 0)
+        fmt_layout.setSpacing(8)
 
-        # Uniform target format selector
-        fmt_box = QHBoxLayout()
-        fmt_box.addWidget(QLabel("統一目標格式:"))
+        lbl_target = QLabel("統一目標格式：")
+        lbl_target.setStyleSheet("font-size: 13px; font-weight: 500; color: #CAD1DC; background: transparent;")
         self.batch_fmt_combo = QComboBox()
+        self.batch_fmt_combo.setFixedHeight(32)
+        self.batch_fmt_combo.setMinimumWidth(260)
         self.batch_fmt_combo.addItems([
-            "★ MMD 專用 WAV (44.1kHz 16-bit)",
-            "WAV (標準 PCM)",
-            "MP3 (320 kbps)",
-            "MP3 (192 kbps)",
-            "FLAC (無損音訊)",
-            "M4A (AAC 256k)",
-            "OGG (Vorbis)",
-            "OPUS",
-            "MP4 (影片容器)"
+            "★ MMD 專用 WAV (44.1 kHz / 16-bit)",
+            "WAV (標準 44.1 kHz PCM)",
+            "MP3 (最高音質 320 kbps)",
+            "MP3 (標準音質 192 kbps)",
+            "FLAC (無損壓縮)",
+            "M4A (AAC 256 kbps)",
+            "MP4 (H.264 影片容器)",
+            "MKV (多軌影音容器)"
         ])
-        fmt_box.addWidget(self.batch_fmt_combo)
-        header_layout.addLayout(fmt_box)
+        fmt_layout.addWidget(lbl_target)
+        fmt_layout.addWidget(self.batch_fmt_combo)
 
-        main_layout.addWidget(header_card)
+        # Embed target format combo into the hero banner's content row
+        self.hero_banner.text_col.addSpacing(6)
+        self.hero_banner.text_col.addWidget(fmt_container)
 
-        # Table Widget
+        main_layout.addWidget(self.hero_banner)
+
+        # 2. Drop Zone (shown when table is empty)
+        self.drop_zone = DropZoneWidget(self)
+        self.drop_zone.add_files_clicked.connect(self._on_add_files)
+        main_layout.addWidget(self.drop_zone, 1)
+
+        # 3. File List Table (shown when files are added)
         self.table = QTableWidget(0, 7)
         self.table.setHorizontalHeaderLabels([
             "檔案名稱", "格式/編碼", "採樣率", "聲道", "時長", "大小", "狀態"
@@ -123,29 +252,40 @@ class ConverterView(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setVisible(False)
         main_layout.addWidget(self.table, 1)
 
-        # Empty state placeholder
-        self.empty_state = EmptyStateWidget(
-            icon_text="📂",
-            title="尚未加入任何待轉檔檔案",
-            description="您可以直接拖曳 MP3、MP4、FLAC、M4A、OGG、WAV 等檔案或資料夾至此視窗，\n或點選下方按鈕加入檔案進行批次轉檔！",
-            action_text="📁 瀏覽加入本機檔案...",
-            action_callback=self._on_add_files
-        )
-        main_layout.addWidget(self.empty_state, 1)
-        self.empty_state.setVisible(True)
-        self.table.setVisible(False)
-
-        # Bottom Action Bar
+        # 4. Bottom Action Bar matching 03_converter_view.png
         action_bar = QHBoxLayout()
+        action_bar.setSpacing(10)
+
         self.add_files_btn = QPushButton("📁 加入檔案...")
-        self.add_folder_btn = QPushButton("📂 加入資料夾...")
-        self.clear_btn = QPushButton("清空清單")
-        self.convert_all_btn = QPushButton("⚡ 開始全部批次轉檔")
-        self.convert_all_btn.setProperty("class", "primary")
-        self.convert_all_btn.setMinimumHeight(40)
-        self.convert_all_btn.setMinimumWidth(160)
+        self.add_files_btn.setFixedHeight(36)
+        self.add_folder_btn = QPushButton("📁 加入資料夾...")
+        self.add_folder_btn.setFixedHeight(36)
+        self.clear_btn = QPushButton("🗑 清空清單")
+        self.clear_btn.setFixedHeight(36)
+
+        self.convert_all_btn = QPushButton("▶ 開始全部批次轉換")
+        self.convert_all_btn.setFixedHeight(38)
+        self.convert_all_btn.setMinimumWidth(180)
+        self.convert_all_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #00D2B4;
+                color: #0E151B;
+                font-size: 13px;
+                font-weight: bold;
+                border: none;
+                border-radius: 8px;
+                padding: 0px 20px;
+            }
+            QPushButton:hover {
+                background-color: #1AE0C4;
+            }
+            QPushButton:pressed {
+                background-color: #00BFA3;
+            }
+        """)
 
         action_bar.addWidget(self.add_files_btn)
         action_bar.addWidget(self.add_folder_btn)
@@ -187,7 +327,7 @@ class ConverterView(QWidget):
             self._add_paths_to_table(paths)
 
     def _on_add_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "選取資料夾")
+        folder = QFileDialog.getExistingDirectory(self, "選取包含媒體的資料夾")
         if folder:
             p = Path(folder)
             paths = [f for f in p.rglob("*") if f.is_file() and f.suffix.lower() in self.SUPPORTED_EXTS]
@@ -199,130 +339,148 @@ class ConverterView(QWidget):
             return
 
         start_row = len(self.file_items)
-        for p in new_paths:
-            self.file_items.append(p)
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-            size_str = format_bytes(p.stat().st_size)
+        self.file_items.extend(new_paths)
 
-            self.table.setItem(row, 0, QTableWidgetItem(p.name))
-            self.table.setItem(row, 1, QTableWidgetItem("解析中..."))
-            self.table.setItem(row, 2, QTableWidgetItem("--"))
-            self.table.setItem(row, 3, QTableWidgetItem("--"))
-            self.table.setItem(row, 4, QTableWidgetItem("--"))
-            self.table.setItem(row, 5, QTableWidgetItem(size_str))
-            self.table.setItem(row, 6, QTableWidgetItem("待處理"))
+        self.table.setRowCount(len(self.file_items))
+        for idx, p in enumerate(new_paths):
+            row = start_row + idx
+            name_item = QTableWidgetItem(p.name)
+            name_item.setToolTip(str(p))
+            self.table.setItem(row, 0, name_item)
 
-        self._update_visibility()
+            ext_item = QTableWidgetItem(p.suffix.upper().lstrip("."))
+            ext_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.setItem(row, 1, ext_item)
 
-        # Non-blocking probe worker
+            sr_item = QTableWidgetItem("讀取中...")
+            sr_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.setItem(row, 2, sr_item)
+
+            ch_item = QTableWidgetItem("--")
+            ch_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.setItem(row, 3, ch_item)
+
+            dur_item = QTableWidgetItem("--:--")
+            dur_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.setItem(row, 4, dur_item)
+
+            try:
+                sz = format_bytes(p.stat().st_size)
+            except Exception:
+                sz = "--"
+            sz_item = QTableWidgetItem(sz)
+            sz_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.setItem(row, 5, sz_item)
+
+            status_item = QTableWidgetItem("就緒")
+            status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.setItem(row, 6, status_item)
+
+        self.drop_zone.setVisible(False)
+        self.table.setVisible(True)
+
+        # Launch background probe
         self._probe_worker = ProbeWorker(self.ffmpeg_engine, new_paths, start_row)
         self._probe_worker.item_probed.connect(self._on_item_probed)
         self._probe_worker.start()
 
-    def _on_item_probed(self, row: int, path: Path, info: Optional[MediaInfo]):
-        if row < self.table.rowCount() and info:
-            self.media_infos[str(path)] = info
-            codec_str = "--"
-            sr_str = "--"
-            ch_str = "--"
-            dur_str = format_time(info.duration)
+    def _on_item_probed(self, row: int, p: Path, info: Optional[MediaInfo]):
+        if not info:
+            return
+        self.media_infos[str(p)] = info
 
-            if info.audio_stream:
-                codec_str = info.audio_stream.codec_name
-                sr_str = f"{info.audio_stream.sample_rate} Hz"
-                ch_str = f"{info.audio_stream.channels} ch"
-            elif info.video_stream:
-                codec_str = f"Video: {info.video_stream.codec_name}"
+        # 1. Format/Codec
+        codec_name = "--"
+        if info.audio_stream:
+            codec_name = info.audio_stream.codec_name.upper()
+        elif info.video_stream:
+            codec_name = f"{info.video_stream.codec_name.upper()} 影片"
 
-            self.table.setItem(row, 1, QTableWidgetItem(codec_str))
-            self.table.setItem(row, 2, QTableWidgetItem(sr_str))
-            self.table.setItem(row, 3, QTableWidgetItem(ch_str))
-            self.table.setItem(row, 4, QTableWidgetItem(dur_str))
-        elif row < self.table.rowCount():
-            self.table.setItem(row, 1, QTableWidgetItem("無法讀取"))
+        ext_item = self.table.item(row, 1)
+        if ext_item:
+            ext_item.setText(f"{p.suffix.upper().lstrip('.')} ({codec_name})")
+
+        # 2. Sample rate
+        if info.audio_stream and info.audio_stream.sample_rate:
+            sr_item = self.table.item(row, 2)
+            if sr_item:
+                sr_item.setText(f"{info.audio_stream.sample_rate:,} Hz")
+
+        # 3. Channels
+        if info.audio_stream and info.audio_stream.channels:
+            ch_item = self.table.item(row, 3)
+            if ch_item:
+                ch = info.audio_stream.channels
+                ch_item.setText(f"{ch} 聲道 ({'立體' if ch == 2 else '單聲'})")
+
+        # 4. Duration
+        dur_item = self.table.item(row, 4)
+        if dur_item:
+            dur_item.setText(info.display_duration)
 
     def _clear_list(self):
         self.file_items.clear()
         self.media_infos.clear()
         self.table.setRowCount(0)
-        self._update_visibility()
-
-    def _update_visibility(self):
-        has_items = len(self.file_items) > 0
-        self.table.setVisible(has_items)
-        self.empty_state.setVisible(not has_items)
-
-    def closeEvent(self, event):
-        if hasattr(self, "_probe_worker") and self._probe_worker and self._probe_worker.isRunning():
-            self._probe_worker.quit()
-            self._probe_worker.wait(500)
-        super().closeEvent(event)
+        self.table.setVisible(False)
+        self.drop_zone.setVisible(True)
 
     def _start_batch_conversion(self):
         if not self.file_items:
-            ToastManager.show_toast(self, "清單為空", "請先加入至少一個要轉檔的檔案！", ToastType.WARNING)
+            QMessageBox.information(self, "清單為空", "請先加入至少一個要轉檔的音訊或影片檔案！")
             return
 
         cfg = self.config_mgr.get()
         out_dir = cfg.output_dir
+        combo_text = self.batch_fmt_combo.currentText()
 
-        target_choice = self.batch_fmt_combo.currentText()
-        is_mmd = "MMD" in target_choice
+        # Parse target format
+        mode = "audio"
+        fmt = "WAV"
+        sr = 44100
+        ch = 2
+        quality = "best"
 
-        if is_mmd:
+        if "MMD 專用" in combo_text:
             mode = "mmd_wav"
             fmt = "WAV"
-            q = "best"
-        elif "MP3 (320" in target_choice:
-            mode = "audio"
+            sr = 44100
+            ch = 2
+        elif "WAV" in combo_text:
+            fmt = "WAV"
+            sr = 44100
+        elif "MP3" in combo_text:
             fmt = "MP3"
-            q = "320k"
-        elif "MP3 (192" in target_choice:
-            mode = "audio"
-            fmt = "MP3"
-            q = "192k"
-        elif "FLAC" in target_choice:
-            mode = "audio"
+            quality = "320k" if "320" in combo_text else "192k"
+        elif "FLAC" in combo_text:
             fmt = "FLAC"
-            q = "best"
-        elif "M4A" in target_choice:
-            mode = "audio"
+        elif "M4A" in combo_text:
             fmt = "M4A"
-            q = "best"
-        elif "OGG" in target_choice:
-            mode = "audio"
-            fmt = "OGG"
-            q = "best"
-        elif "OPUS" in target_choice:
-            mode = "audio"
-            fmt = "OPUS"
-            q = "best"
-        elif "MP4" in target_choice:
+            quality = "256k"
+        elif "MP4" in combo_text:
             mode = "video"
             fmt = "MP4"
-            q = "best"
-        else:
-            mode = "audio"
-            fmt = "WAV"
-            q = "best"
+        elif "MKV" in combo_text:
+            mode = "video"
+            fmt = "MKV"
 
-        for row, path in enumerate(self.file_items):
-            self.table.setItem(row, 6, QTableWidgetItem("已排入佇列"))
-            self.task_manager.add_convert_task(
-                input_file=path,
+        for p in self.file_items:
+            self.task_manager.add_conversion_task(
+                input_file=p,
                 output_dir=out_dir,
                 mode=mode,
                 target_format=fmt,
-                audio_quality=q,
-                sample_rate=cfg.mmd_wav.sample_rate,
-                channels=cfg.mmd_wav.channels,
-                volume_gain_db=cfg.mmd_wav.volume_gain_db
+                audio_quality=quality,
+                sample_rate=sr,
+                channels=ch
             )
 
         ToastManager.show_toast(
             self,
-            title="批次轉檔已啟動",
-            message=f"已成功將 {len(self.file_items)} 個檔案排入轉檔佇列！",
+            title="批次轉檔已加入任務佇列",
+            message=f"已將 {len(self.file_items)} 個檔案排入轉檔程序，請至「任務管理」查看進度",
             toast_type=ToastType.SUCCESS
         )
+
+    def _on_theme_changed(self, mode: str, accent: str):
+        pass

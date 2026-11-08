@@ -49,8 +49,8 @@ class AudioPlayerWidget(QFrame):
 
         # Header: Title & Time display
         header_layout = QHBoxLayout()
-        self.title_label = QLabel("未載入音訊")
-        self.title_label.setStyleSheet("font-weight: bold; color: #E0E5EC;")
+        self.title_label = QLabel("·|·  預覽音訊")
+        self.title_label.setStyleSheet("font-weight: bold; font-size: 13px; color: #FFFFFF;")
         self.time_label = QLabel("00:00 / 00:00")
         self.time_label.setStyleSheet("color: #8C95A6; font-size: 12px;")
         header_layout.addWidget(self.title_label, 1)
@@ -59,18 +59,22 @@ class AudioPlayerWidget(QFrame):
 
         # Interactive Waveform
         self.waveform = WaveformWidget(self)
+        self.waveform.setFixedHeight(56)
         main_layout.addWidget(self.waveform)
 
         # Controls Row
         controls_layout = QHBoxLayout()
         controls_layout.setSpacing(10)
 
-        self.play_btn = QPushButton("▶ 播放")
-        self.play_btn.setMinimumWidth(80)
+        self.play_btn = QPushButton("▶")
+        self.play_btn.setFixedSize(36, 32)
+        self.play_btn.setProperty("class", "primary")
+        self.play_btn.setToolTip("播放 / 暫停")
         self.play_btn.setEnabled(False)
 
-        self.stop_btn = QPushButton("■ 停止")
-        self.stop_btn.setMinimumWidth(60)
+        self.stop_btn = QPushButton("■")
+        self.stop_btn.setFixedSize(36, 32)
+        self.stop_btn.setToolTip("停止")
         self.stop_btn.setEnabled(False)
 
         controls_layout.addWidget(self.play_btn)
