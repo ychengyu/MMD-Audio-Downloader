@@ -33,6 +33,10 @@ class AudioPlayerWidget(QFrame):
         self.current_file: Optional[Path] = None
         self.duration_secs: float = 0.0
 
+        from PySide6.QtWidgets import QSizePolicy
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.setFixedHeight(120)
+
         # Initialize Qt Multimedia Player
         self.player = QMediaPlayer(self)
         self.audio_output = QAudioOutput(self)

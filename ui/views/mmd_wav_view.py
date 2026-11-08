@@ -59,10 +59,15 @@ class MMDWavView(QWidget):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         content_widget = QWidget()
+        content_widget.setMinimumWidth(740)
         layout = QVBoxLayout(content_widget)
-        layout.setSpacing(12)
-        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        layout.setSpacing(14)
+        layout.setContentsMargins(16, 8, 16, 16)
+
+        from PySide6.QtWidgets import QSizePolicy
 
         # 1. Page Header matching 01_mmd_wav_zone.png
         self.hero_banner = HeroBannerWidget(
@@ -72,13 +77,15 @@ class MMDWavView(QWidget):
             ],
             badge_type="wav"
         )
+        self.hero_banner.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.hero_banner)
 
         # 2. Source Input Card (URL & Local File on single cohesive card)
         source_card = QFrame()
         source_card.setProperty("class", "card")
+        source_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         source_layout = QVBoxLayout(source_card)
-        source_layout.setContentsMargins(16, 14, 16, 14)
+        source_layout.setContentsMargins(16, 12, 16, 12)
         source_layout.setSpacing(10)
 
         title_box = QVBoxLayout()
@@ -156,6 +163,7 @@ class MMDWavView(QWidget):
         # 3. MMD Compatible Settings Card
         opt_card = QFrame()
         opt_card.setProperty("class", "card")
+        opt_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         opt_card_layout = QVBoxLayout(opt_card)
         opt_card_layout.setContentsMargins(16, 14, 16, 14)
         opt_card_layout.setSpacing(12)
@@ -170,12 +178,14 @@ class MMDWavView(QWidget):
 
         # Row 0: Sample rate & Channels
         lbl_sr = QLabel("採樣頻率：")
+        lbl_sr.setFixedWidth(82)
         lbl_sr.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         self.sr_combo = QComboBox()
         self.sr_combo.addItems(["44,100 Hz (MMD 標準推薦)", "48,000 Hz"])
         self.sr_combo.setFixedHeight(34)
 
         lbl_ch = QLabel("聲道配置：")
+        lbl_ch.setFixedWidth(82)
         lbl_ch.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         self.ch_combo = QComboBox()
         self.ch_combo.addItems(["Stereo 雙聲道 (MMD 預設)", "Mono 單聲道"])
@@ -188,11 +198,13 @@ class MMDWavView(QWidget):
 
         # Row 1: Bit Depth & Volume Gain
         lbl_bit = QLabel("位元深度：")
+        lbl_bit.setFixedWidth(82)
         lbl_bit.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         self.bit_label = QLabel("16-bit Signed PCM (標準)")
         self.bit_label.setStyleSheet("font-weight: bold; color: #00D2B4; font-size: 13px;")
 
         lbl_gain = QLabel("音量增益 (dB)：")
+        lbl_gain.setFixedWidth(110)
         lbl_gain.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         self.gain_spin = QDoubleSpinBox()
         self.gain_spin.setRange(-24.0, 24.0)
@@ -211,6 +223,7 @@ class MMDWavView(QWidget):
 
         # Row 2: Trimming & Checkboxes
         lbl_trim = QLabel("音訊裁切 (選用)：")
+        lbl_trim.setFixedWidth(110)
         lbl_trim.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
         trim_box = QHBoxLayout()
         trim_box.setSpacing(6)
@@ -246,7 +259,8 @@ class MMDWavView(QWidget):
         # 4. Full-Width Action Button: "📥 立即下載 / 轉檔為 MMD WAV"
         self.process_btn = QPushButton("📥 立即下載 / 轉檔為 MMD WAV")
         self.process_btn.setProperty("class", "primary")
-        self.process_btn.setMinimumHeight(42)
+        self.process_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.process_btn.setFixedHeight(42)
         self.process_btn.setStyleSheet("font-size: 15px; font-weight: bold;")
         self.process_btn.clicked.connect(self._start_process)
         layout.addWidget(self.process_btn)
@@ -254,6 +268,7 @@ class MMDWavView(QWidget):
         # 5. Result Verification Card (Initially hidden until processed)
         self.result_card = QFrame()
         self.result_card.setProperty("class", "card")
+        self.result_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.result_card.setVisible(False)
         self.result_layout = QVBoxLayout(self.result_card)
         self.result_layout.setContentsMargins(14, 12, 14, 12)
@@ -279,7 +294,10 @@ class MMDWavView(QWidget):
 
         # 6. Audio Preview Player
         self.player_widget = AudioPlayerWidget(self.ffmpeg_engine)
+        self.player_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.player_widget)
+
+        layout.addStretch(1)
 
         scroll.setWidget(content_widget)
         main_layout.addWidget(scroll)

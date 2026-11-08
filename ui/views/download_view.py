@@ -76,6 +76,8 @@ class DownloadView(QWidget):
         self._on_theme_changed("dark" if ThemeManager().is_dark() else "light", ThemeManager().accent_color)
 
     def _setup_ui(self):
+        from PySide6.QtWidgets import QSizePolicy
+
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(18, 14, 18, 14)
         main_layout.setSpacing(0)
@@ -89,8 +91,9 @@ class DownloadView(QWidget):
         content = QWidget()
         content.setMinimumWidth(740)
         layout = QVBoxLayout(content)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.setSpacing(12)
-        layout.setContentsMargins(4, 2, 8, 12)
+        layout.setContentsMargins(16, 8, 16, 16)
 
         # 1. Page Header matching 02_download_view.png
         self.page_header = PageHeaderWidget(
@@ -100,11 +103,13 @@ class DownloadView(QWidget):
             ],
             badge_type="download",
         )
+        self.page_header.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.page_header)
 
         # 2. URL Input Card: Single clean row matching 02_download_view.png
         url_card = QFrame()
         url_card.setProperty("class", "card")
+        url_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         url_layout = QVBoxLayout(url_card)
         url_layout.setContentsMargins(12, 10, 12, 10)
         url_layout.setSpacing(8)
@@ -153,6 +158,7 @@ class DownloadView(QWidget):
         self.preview_card = QFrame()
         self.preview_card.setProperty("class", "card")
         self.preview_card.setFixedHeight(116)
+        self.preview_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.preview_card.setVisible(False)
         preview_layout = QHBoxLayout(self.preview_card)
         preview_layout.setContentsMargins(14, 12, 16, 12)
@@ -188,22 +194,25 @@ class DownloadView(QWidget):
 
         layout.addWidget(self.preview_card)
 
-        # 4. Format Card Selector (Horizontal row of 5 cards matching 02_download_view.png)
+        # 4. Format Card Selector (Horizontal row of 6 cards matching reference)
         self.fmt_title = QLabel("輸出格式")
         self.fmt_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #FFFFFF; background: transparent;")
+        self.fmt_title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.fmt_title)
 
         self.format_selector = FormatCardSelector(
             default_format="WAV",
-            formats=["WAV", "MP3", "MP4", "FLAC", "M4A"],
+            formats=["WAV", "MP3", "MP4", "FLAC", "M4A", "MKV"],
             parent=self,
         )
+        self.format_selector.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.format_selector.format_changed.connect(self._on_format_changed)
         layout.addWidget(self.format_selector)
 
         # 5. Dynamic Parameter Box (Switches according to selected format)
         self.param_stack = QStackedWidget()
         self.param_stack.setFixedHeight(154)
+        self.param_stack.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
         self.page_wav = self._create_wav_param_page()
         self.param_stack.addWidget(self.page_wav)  # Index 0: WAV
@@ -220,12 +229,16 @@ class DownloadView(QWidget):
         self.page_m4a = self._create_m4a_param_page()
         self.param_stack.addWidget(self.page_m4a)  # Index 4: M4A
 
+        self.page_mkv = self._create_mkv_param_page()
+        self.param_stack.addWidget(self.page_mkv)  # Index 5: MKV
+
         layout.addWidget(self.param_stack)
 
         # 6. Full-Width Primary Action Button: "📥 下載 WAV"
         self.download_btn = QPushButton("📥 下載 WAV")
         self.download_btn.setProperty("class", "primary")
         self.download_btn.setFixedHeight(42)
+        self.download_btn.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self.download_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.download_btn.setStyleSheet("font-size: 15px; font-weight: bold;")
         self.download_btn.clicked.connect(self._start_download)
@@ -233,6 +246,7 @@ class DownloadView(QWidget):
 
         # 7. Bottom Active Task Section (Real-time progress row matching 02_download_view.png)
         self.task_section = QWidget()
+        self.task_section.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         task_sec_layout = QVBoxLayout(self.task_section)
         task_sec_layout.setContentsMargins(0, 4, 0, 0)
         task_sec_layout.setSpacing(6)
@@ -362,6 +376,8 @@ class DownloadView(QWidget):
         task_sec_layout.addWidget(self.active_task_card)
         self.task_section.setVisible(False)
         layout.addWidget(self.task_section)
+
+        layout.addStretch(1)
 
         scroll.setWidget(content)
         main_layout.addWidget(scroll)
@@ -782,6 +798,93 @@ class DownloadView(QWidget):
         v.addWidget(card)
         return container
 
+    def _create_mkv_param_page(self) -> QWidget:
+        """MKV parameter card matching Windows 11 Fluent Design."""
+        container = QWidget()
+        v = QVBoxLayout(container)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(6)
+
+        title = QLabel("MKV 影片輸出設定 (支援多聲軌高畫質容器)")
+        title.setFixedHeight(22)
+        title.setStyleSheet("font-size: 13px; font-weight: bold; color: #FFFFFF; background: transparent;")
+        v.addWidget(title)
+
+        card = QFrame()
+        card.setProperty("class", "card")
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(16, 12, 16, 12)
+        card_layout.setSpacing(10)
+
+        # Row 1: 3 Columns
+        row1 = QHBoxLayout()
+        row1.setSpacing(16)
+
+        col1 = QHBoxLayout()
+        col1.setSpacing(8)
+        lbl_res = QLabel("影片畫質")
+        lbl_res.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
+        self.mkv_res_combo = QComboBox()
+        self.mkv_res_combo.addItems([
+            "最佳可用畫質 (自動最高)",
+            "2160p (4K UHD)",
+            "1440p (2K QHD)",
+            "1080p (Full HD)",
+            "720p (HD)",
+            "480p (SD)",
+        ])
+        self.mkv_res_combo.setFixedHeight(34)
+        col1.addWidget(lbl_res)
+        col1.addWidget(self.mkv_res_combo, 1)
+        row1.addLayout(col1, 1)
+
+        col2 = QHBoxLayout()
+        col2.setSpacing(8)
+        lbl_vcodec = QLabel("視訊編碼")
+        lbl_vcodec.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
+        self.mkv_vcodec_combo = QComboBox()
+        self.mkv_vcodec_combo.addItems(["H.264 / AVC (高相容性)", "HEVC / H.265", "AV1 (高壓縮)"])
+        self.mkv_vcodec_combo.setFixedHeight(34)
+        col2.addWidget(lbl_vcodec)
+        col2.addWidget(self.mkv_vcodec_combo, 1)
+        row1.addLayout(col2, 1)
+
+        col3 = QHBoxLayout()
+        col3.setSpacing(8)
+        lbl_acodec = QLabel("音訊編碼")
+        lbl_acodec.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
+        self.mkv_acodec_combo = QComboBox()
+        self.mkv_acodec_combo.addItems(["AAC (320 kbps 高音質)", "FLAC (無損音軌)", "無損原始音軌"])
+        self.mkv_acodec_combo.setFixedHeight(34)
+        col3.addWidget(lbl_acodec)
+        col3.addWidget(self.mkv_acodec_combo, 1)
+        row1.addLayout(col3, 1)
+
+        card_layout.addLayout(row1)
+
+        # Row 2: 儲存位置 + 瀏覽
+        row2 = QHBoxLayout()
+        row2.setSpacing(10)
+        lbl_save = QLabel("儲存位置")
+        lbl_save.setStyleSheet("color: #E1E4EA; font-size: 13px; background: transparent;")
+        self.mkv_save_input = QLineEdit(self.config_mgr.get().output_dir)
+        self.mkv_save_input.setReadOnly(True)
+        self.mkv_save_input.setFixedHeight(34)
+
+        self.mkv_browse_btn = QPushButton("📁 瀏覽...")
+        self.mkv_browse_btn.setFixedHeight(34)
+        self.mkv_browse_btn.setFixedWidth(90)
+        self.mkv_browse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.mkv_browse_btn.clicked.connect(self._browse_save_directory)
+
+        row2.addWidget(lbl_save)
+        row2.addWidget(self.mkv_save_input, 1)
+        row2.addWidget(self.mkv_browse_btn)
+        card_layout.addLayout(row2)
+
+        v.addWidget(card)
+        return container
+
     def _browse_save_directory(self):
         folder = QFileDialog.getExistingDirectory(self, "選取儲存資料夾", self.config_mgr.get().output_dir)
         if folder:
@@ -794,6 +897,7 @@ class DownloadView(QWidget):
                 getattr(self, "mp4_save_input", None),
                 getattr(self, "flac_save_input", None),
                 getattr(self, "m4a_save_input", None),
+                getattr(self, "mkv_save_input", None),
             ]:
                 if inp:
                     inp.setText(folder)
@@ -813,6 +917,7 @@ class DownloadView(QWidget):
             "MP4": 2,
             "FLAC": 3,
             "M4A": 4,
+            "MKV": 5,
         }
         idx = mapping.get(fmt_key.upper(), 0)
         self.param_stack.setCurrentIndex(idx)
@@ -881,6 +986,9 @@ class DownloadView(QWidget):
         if first.available_resolutions:
             self.mp4_res_combo.clear()
             self.mp4_res_combo.addItems(first.available_resolutions)
+            if hasattr(self, "mkv_res_combo"):
+                self.mkv_res_combo.clear()
+                self.mkv_res_combo.addItems(first.available_resolutions)
 
         # Set thumbnail and duration badge
         if first.duration:
@@ -917,6 +1025,10 @@ class DownloadView(QWidget):
             audio_q = "320k" if "320" in t else ("256k" if "256" in t else ("192k" if "192" in t else "128k"))
         elif fmt == "MP4":
             res_text = self.mp4_res_combo.currentText()
+            digits = re.findall(r"\d+", res_text)
+            video_q = digits[0] if digits else "best"
+        elif fmt == "MKV":
+            res_text = self.mkv_res_combo.currentText()
             digits = re.findall(r"\d+", res_text)
             video_q = digits[0] if digits else "best"
         elif fmt == "FLAC":

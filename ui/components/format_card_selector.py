@@ -271,7 +271,7 @@ class FormatCardSelector(QWidget):
     ):
         super().__init__(parent)
         self.selected_format = default_format
-        self.allowed_formats = formats or ["WAV", "MP3", "MP4", "FLAC", "M4A"]
+        self.allowed_formats = formats or ["WAV", "MP3", "MP4", "FLAC", "M4A", "MKV"]
         self.cards: Dict[str, FormatCard] = {}
 
         self._setup_ui()

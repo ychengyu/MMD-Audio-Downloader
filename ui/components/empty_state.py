@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -31,6 +32,7 @@ class EmptyStateWidget(QFrame):
     ):
         super().__init__(parent)
         self.setProperty("class", "card")
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self._setup_ui(icon_text, title, description, action_text, action_callback)
 
     def _setup_ui(

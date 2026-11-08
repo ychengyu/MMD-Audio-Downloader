@@ -161,8 +161,10 @@ class TaskManagerView(QWidget):
         # 4. Scrollable Task Cards Container
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.cards_container = QWidget()
         self.cards_layout = QVBoxLayout(self.cards_container)
+        self.cards_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.cards_layout.setContentsMargins(0, 0, 0, 0)
         self.cards_layout.setSpacing(8)
 

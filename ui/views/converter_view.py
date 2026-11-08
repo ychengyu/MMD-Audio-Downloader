@@ -66,21 +66,22 @@ class DropZoneWidget(QFrame):
         ThemeManager().theme_changed.connect(lambda *_: self.update())
 
     def _setup_ui(self):
+        self.setFixedHeight(240)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(40, 50, 40, 50)
-        layout.setSpacing(14)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(10)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Center glowing icon
         icon_lbl = QLabel("📁")
         icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_lbl.setStyleSheet("font-size: 54px; background: transparent;")
+        icon_lbl.setStyleSheet("font-size: 40px; background: transparent;")
         layout.addWidget(icon_lbl)
 
         # Title
         self.title_lbl = QLabel("拖曳音樂或影片檔案至此處，或使用下方按鈕")
         self.title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.title_lbl.setStyleSheet("font-size: 16px; font-weight: bold; color: #FFFFFF; background: transparent;")
+        self.title_lbl.setStyleSheet("font-size: 15px; font-weight: bold; color: #FFFFFF; background: transparent;")
         layout.addWidget(self.title_lbl)
 
         # Subtitle
@@ -101,8 +102,8 @@ class DropZoneWidget(QFrame):
                     background-color: rgba(0, 210, 180, 0.12);
                     color: #00D2B4;
                     border: 1px solid rgba(0, 210, 180, 0.35);
-                    border-radius: 12px;
-                    padding: 4px 14px;
+                    border-radius: 10px;
+                    padding: 3px 12px;
                     font-size: 11px;
                     font-weight: 600;
                 }
@@ -110,11 +111,11 @@ class DropZoneWidget(QFrame):
             pills_layout.addWidget(pill)
 
         layout.addLayout(pills_layout)
-        layout.addSpacing(6)
+        layout.addSpacing(4)
 
         # Browse Button
         self.browse_btn = QPushButton("📁  瀏覽並加入檔案...")
-        self.browse_btn.setFixedHeight(38)
+        self.browse_btn.setFixedHeight(36)
         self.browse_btn.setMinimumWidth(180)
         self.browse_btn.setStyleSheet("""
             QPushButton {
@@ -232,7 +233,7 @@ class ConverterView(QWidget):
         # 2. Drop Zone (shown when table is empty)
         self.drop_zone = DropZoneWidget(self)
         self.drop_zone.add_files_clicked.connect(self._on_add_files)
-        main_layout.addWidget(self.drop_zone, 1)
+        main_layout.addWidget(self.drop_zone)
 
         # 3. File List Table (shown when files are added)
         self.table = QTableWidget(0, 7)
@@ -250,6 +251,8 @@ class ConverterView(QWidget):
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setVisible(False)
         main_layout.addWidget(self.table, 1)
+
+        main_layout.addStretch(1)
 
         # 4. Bottom Action Bar matching 03_converter_view.png
         action_bar = QHBoxLayout()

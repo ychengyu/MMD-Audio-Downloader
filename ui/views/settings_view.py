@@ -67,8 +67,10 @@ class SettingsView(QWidget):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         content = QWidget()
         layout = QVBoxLayout(content)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         layout.setSpacing(12)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -332,9 +334,7 @@ class SettingsView(QWidget):
         c5_layout.addWidget(about_desc)
         layout.addWidget(card5)
 
-        layout.addStretch(1)
-
-        # Bottom Full-width Save Button
+        # Full-width Save Button
         self.save_btn = QPushButton("💾 儲存並套用所有設定")
         self.save_btn.setFixedHeight(42)
         self.save_btn.setStyleSheet("""
@@ -354,6 +354,8 @@ class SettingsView(QWidget):
             }
         """)
         layout.addWidget(self.save_btn)
+
+        layout.addStretch(1)
 
         scroll.setWidget(content)
         main_layout.addWidget(scroll)
